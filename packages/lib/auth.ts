@@ -6,7 +6,7 @@ import { getSession as getSessionInner, GetSessionParams } from "next-auth/react
 import { HttpError } from "@calcom/lib/http-error";
 
 export async function hashPassword(password: string) {
-  const hashedPassword = await hash(password, 12);
+  const hashedPassword = await hash(password, 13);
   return hashedPassword;
 }
 
