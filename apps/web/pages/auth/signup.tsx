@@ -91,7 +91,7 @@ export default function Signup({ email }: Props) {
                 <TextField
                   addOnLeading={
                     <span className="inline-flex items-center rounded-l-sm border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500">
-                      {process.env.NEXT_PUBLIC_APP_URL}/
+                      {process.env.NEXT_PUBLIC_WEBSITE_URL}/
                     </span>
                   }
                   labelProps={{ className: "block text-sm font-medium text-gray-700" }}
@@ -153,14 +153,14 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
       notFound: true,
     };
   }
-  const verificationRequest = await prisma.verificationRequest.findUnique({
+  const verificationToken = await prisma.verificationToken.findUnique({
     where: {
       token,
     },
   });
 
-  // for now, disable if no verificationRequestToken given or token expired
-  if (!verificationRequest || verificationRequest.expires < new Date()) {
+  // for now, disable if no verificationToken given or token expired
+  if (!verificationToken || verificationToken.expires < new Date()) {
     return {
       notFound: true,
     };
@@ -170,7 +170,7 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
     where: {
       AND: [
         {
-          email: verificationRequest.identifier,
+          email: verificationToken.identifier,
         },
         {
           emailVerified: {
@@ -194,7 +194,7 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
     props: {
       isGoogleLoginEnabled: IS_GOOGLE_LOGIN_ENABLED,
       isSAMLLoginEnabled,
-      email: verificationRequest.identifier,
+      email: verificationToken.identifier,
       trpcState: ssr.dehydrate(),
     },
   };

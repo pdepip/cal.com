@@ -1,15 +1,16 @@
 import { Prisma, User, Booking, SchedulingType, BookingStatus } from "@prisma/client";
 import type { NextApiRequest, NextApiResponse } from "next";
 
+import EventManager from "@calcom/core/EventManager";
+import logger from "@calcom/lib/logger";
+import type { AdditionInformation } from "@calcom/types/Calendar";
+import type { CalendarEvent } from "@calcom/types/Calendar";
 import { refund } from "@ee/lib/stripe/server";
 
 import { asStringOrNull } from "@lib/asStringOrNull";
 import { getSession } from "@lib/auth";
 import { sendDeclinedEmails } from "@lib/emails/email-manager";
 import { sendScheduledEmails } from "@lib/emails/email-manager";
-import EventManager from "@lib/events/EventManager";
-import { CalendarEvent, AdditionInformation } from "@lib/integrations/calendar/interfaces/Calendar";
-import logger from "@lib/logger";
 import prisma from "@lib/prisma";
 import { BookingConfirmBody } from "@lib/types/booking";
 
@@ -168,9 +169,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           metadata.conferenceData = results[0].createdEvent?.conferenceData;
           metadata.entryPoints = results[0].createdEvent?.entryPoints;
         }
-        await sendScheduledEmails({ ...evt, additionInformation: metadata });
+        try {
+          await sendScheduledEmails({ ...evt, additionInformation: metadata });
+        } catch (error) {
+          log.error(error);
+        }
       }
 
+      // @NOTE: be careful with this as if any error occurs before this booking doesn't get confirmed
+      // Should perform update on booking (confirm) -> then trigger the rest handlers
       await prisma.booking.update({
         where: {
           id: bookingId,
