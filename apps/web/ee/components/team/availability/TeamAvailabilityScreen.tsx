@@ -47,7 +47,7 @@ export default function TeamAvailabilityScreen(props: Props) {
               <Avatar
                 imageSrc={getPlaceholderAvatar(member?.avatar, member?.name as string)}
                 alt={member?.name || ""}
-                className="min-h-10 min-w-10 mt-1 h-10 w-10 rounded-full"
+                className="min-w-10 min-h-10 mt-1 h-10 w-10 rounded-full"
               />
               <div className="ml-3 inline-block overflow-hidden pt-1">
                 <span className="truncate text-lg font-bold text-neutral-700">{member?.name}</span>
@@ -80,7 +80,7 @@ export default function TeamAvailabilityScreen(props: Props) {
             value={selectedTimeZone}
             onChange={(timezone) => setSelectedTimeZone(timezone.value)}
             classNamePrefix="react-select"
-            className="react-select-container w-full rounded-sm border border-gray-300 shadow-sm focus:border-neutral-800 focus:ring-neutral-800 sm:text-sm"
+            className="react-select-container w-full rounded-sm border border-gray-300 shadow-sm sm:text-sm"
           />
         </div>
         <div className="hidden sm:block">
@@ -92,8 +92,7 @@ export default function TeamAvailabilityScreen(props: Props) {
               { value: 60, label: "60 minutes" },
             ]}
             isSearchable={false}
-            classNamePrefix="react-select"
-            className="react-select-container focus:border-primary-500 focus:ring-primary-500 block w-full min-w-0 flex-1 rounded-sm border border-gray-300 sm:text-sm"
+            className="block w-full min-w-0 flex-1 rounded-sm border border-gray-300 sm:text-sm"
             value={{ value: frequency, label: `${frequency} minutes` }}
             onChange={(newFrequency) => setFrequency(newFrequency?.value ?? 30)}
           />
