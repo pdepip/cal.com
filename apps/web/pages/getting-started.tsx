@@ -78,17 +78,22 @@ export default function Onboarding(props: inferSSRProps<typeof getServerSideProp
   const DEFAULT_EVENT_TYPES = [
     {
       title: t("In Person Lunch"),
-      slug: "30min",
+      slug: "in_person_lunch",
       length: 30,
     },
     {
       title: t("Virtual Lunch"),
-      slug: "30min",
+      slug: "virtual_lunch",
+      length: 30,
+    },
+    {
+      title: t("Virtual Call"),
+      slug: "virtual_call",
       length: 30,
     },
     {
       title: t("Sample Drop"),
-      slug: "15min",
+      slug: "sample_drop",
       length: 15,
     },
   ];
@@ -707,6 +712,7 @@ export async function getServerSideProps(context: NextPageContext) {
       type: true,
       key: true,
       userId: true,
+      appId: true,
     },
   });
 

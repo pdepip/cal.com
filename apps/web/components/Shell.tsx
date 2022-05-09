@@ -11,6 +11,7 @@ import {
   MoonIcon,
   ViewGridIcon,
 } from "@heroicons/react/solid";
+import { UserPlan } from "@prisma/client";
 import { SessionContextValue, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -19,7 +20,6 @@ import { Toaster } from "react-hot-toast";
 
 import { useIsEmbed } from "@calcom/embed-core";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { UserPlan } from "@calcom/prisma/client";
 import Button from "@calcom/ui/Button";
 import Dropdown, {
   DropdownMenuContent,
@@ -34,26 +34,18 @@ import HelpMenuItem from "@ee/components/support/HelpMenuItem";
 import classNames from "@lib/classNames";
 import { WEBAPP_URL } from "@lib/config/constants";
 import { shouldShowOnboarding } from "@lib/getting-started";
+import useMeQuery from "@lib/hooks/useMeQuery";
 import { collectPageParameters, telemetryEventTypes, useTelemetry } from "@lib/telemetry";
 import { trpc } from "@lib/trpc";
 
 import CustomBranding from "@components/CustomBranding";
 import Loader from "@components/Loader";
 import { HeadSeo } from "@components/seo/head-seo";
+import ImpersonatingBanner from "@components/ui/ImpersonatingBanner";
 
 import pkg from "../package.json";
 import { useViewerI18n } from "./I18nLanguageHandler";
 import Logo from "./Logo";
-
-export function useMeQuery() {
-  const meQuery = trpc.useQuery(["viewer.me"], {
-    retry(failureCount) {
-      return failureCount > 3;
-    },
-  });
-
-  return meQuery;
-}
 
 function useRedirectToLoginIfUnauthenticated(isPublic = false) {
   const { data: session, status } = useSession();
@@ -128,6 +120,7 @@ const Layout = ({
 }: LayoutProps & { status: SessionContextValue["status"]; plan?: UserPlan; isLoading: boolean }) => {
   const isEmbed = useIsEmbed();
   const router = useRouter();
+
   const { t } = useLocale();
   const navigation = [
     {
@@ -311,6 +304,7 @@ const Layout = ({
                 props.flexChildrenContainer && "flex flex-1 flex-col",
                 !props.large && "py-8"
               )}>
+              <ImpersonatingBanner />
               {!!props.backPath && (
                 <div className="mx-3 mb-8 sm:mx-8">
                   <Button
@@ -329,10 +323,21 @@ const Layout = ({
                   )}>
                   {props.HeadingLeftIcon && <div className="ltr:mr-4">{props.HeadingLeftIcon}</div>}
                   <div className="mb-8 w-full">
-                    <h1 className="font-cal mb-1 text-xl font-bold capitalize tracking-wide text-gray-900">
-                      {props.heading}
-                    </h1>
-                    <p className="min-h-10 text-sm text-neutral-500 ltr:mr-4 rtl:ml-4">{props.subtitle}</p>
+                    {props.isLoading ? (
+                      <>
+                        <div className="mb-1 h-6 w-24 animate-pulse rounded-md bg-gray-200"></div>
+                        <div className="mb-1 h-6 w-32 animate-pulse rounded-md bg-gray-200"></div>
+                      </>
+                    ) : (
+                      <>
+                        <h1 className="font-cal mb-1 text-xl font-bold capitalize tracking-wide text-gray-900">
+                          {props.heading}
+                        </h1>
+                        <p className="min-h-10 text-sm text-neutral-500 ltr:mr-4 rtl:ml-4">
+                          {props.subtitle}
+                        </p>
+                      </>
+                    )}
                   </div>
                   {props.CTA && <div className="mb-4 flex-shrink-0">{props.CTA}</div>}
                 </div>
@@ -427,7 +432,7 @@ export default function Shell(props: LayoutProps) {
   const isLoading =
     i18n.status === "loading" || query.status === "loading" || isRedirectingToOnboarding || loading;
 
-  if (isLoading && !props.customLoader) {
+  if (isLoading) {
     return (
       <div className="absolute z-50 flex h-screen w-full items-center bg-gray-50">
         <Loader />
