@@ -17,7 +17,7 @@ export function Tooltip({
 }) {
   return (
     <TooltipPrimitive.Root
-      delayDuration={150}
+      delayDuration={50}
       open={open}
       defaultOpen={defaultOpen}
       onOpenChange={onOpenChange}>
@@ -32,3 +32,5 @@ export function Tooltip({
     </TooltipPrimitive.Root>
   );
 }
+
+export default Tooltip;
