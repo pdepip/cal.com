@@ -1,7 +1,7 @@
 import { BookingStatus, Credential, Prisma, SchedulingType, WebhookTriggerEvents } from "@prisma/client";
 import async from "async";
 import dayjs from "dayjs";
-import dayjsBusinessTime from "dayjs-business-time";
+import dayjsBusinessTime from "dayjs-business-days2";
 import isBetween from "dayjs/plugin/isBetween";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
@@ -10,20 +10,13 @@ import rrule from "rrule";
 import short from "short-uuid";
 import { v5 as uuidv5 } from "uuid";
 
-import { getBusyCalendarTimes } from "@calcom/core/CalendarManager";
 import EventManager from "@calcom/core/EventManager";
-import { getBusyVideoTimes } from "@calcom/core/videoClient";
+import { isPrismaObjOrUndefined } from "@calcom/lib";
 import { getDefaultEvent, getGroupName, getUsernameList } from "@calcom/lib/defaultEvents";
 import { getErrorFromUnknown } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
-import notEmpty from "@calcom/lib/notEmpty";
 import type { BufferedBusyTime } from "@calcom/types/BufferedBusyTime";
-import type {
-  AdditionInformation,
-  CalendarEvent,
-  EventBusyDate,
-  RecurringEvent,
-} from "@calcom/types/Calendar";
+import type { AdditionInformation, CalendarEvent, RecurringEvent } from "@calcom/types/Calendar";
 import type { EventResult, PartialReference } from "@calcom/types/EventManager";
 import { handlePayment } from "@ee/lib/stripe/server";
 
@@ -35,6 +28,8 @@ import {
 } from "@lib/emails/email-manager";
 import { ensureArray } from "@lib/ensureArray";
 import { getEventName } from "@lib/event";
+import getBusyTimes from "@lib/getBusyTimes";
+import isOutOfBounds from "@lib/isOutOfBounds";
 import prisma from "@lib/prisma";
 import { BookingCreateBody } from "@lib/types/booking";
 import sendPayload from "@lib/webhooks/sendPayload";
@@ -109,32 +104,6 @@ function isAvailable(busyTimes: BufferedBusyTimes, time: dayjs.ConfigType, lengt
   }
 
   return t;
-}
-
-function isOutOfBounds(
-  time: dayjs.ConfigType,
-  { periodType, periodDays, periodCountCalendarDays, periodStartDate, periodEndDate, timeZone }: any // FIXME types
-): boolean {
-  const date = dayjs(time);
-
-  switch (periodType) {
-    case "rolling": {
-      const periodRollingEndDay = periodCountCalendarDays
-        ? dayjs().tz(timeZone).add(periodDays, "days").endOf("day")
-        : dayjs().tz(timeZone).addBusinessTime(periodDays, "days").endOf("day");
-      return date.endOf("day").isAfter(periodRollingEndDay);
-    }
-
-    case "range": {
-      const periodRangeStartDay = dayjs(periodStartDate).tz(timeZone).endOf("day");
-      const periodRangeEndDay = dayjs(periodEndDate).tz(timeZone).endOf("day");
-      return date.endOf("day").isBefore(periodRangeStartDay) || date.endOf("day").isAfter(periodRangeEndDay);
-    }
-
-    case "unlimited":
-    default:
-      return false;
-  }
 }
 
 const userSelect = Prisma.validator<Prisma.UserArgs>()({
@@ -355,18 +324,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     t: tOrganizer,
   };
 
-  const additionalNotes =
-    reqBody.notes +
-    reqBody.customInputs.reduce(
-      (str, input) => str + "<br /><br />" + input.label + ":<br />" + input.value,
-      ""
-    );
+  const additionalNotes = reqBody.notes;
+
+  const customInputs = {} as NonNullable<CalendarEvent["customInputs"]>;
+
+  if (reqBody.customInputs.length > 0) {
+    reqBody.customInputs.forEach(({ label, value }) => {
+      customInputs[label] = value;
+    });
+  }
 
   const evt: CalendarEvent = {
     type: eventType.title,
     title: getEventName(eventNameObject), //this needs to be either forced in english, or fetched for each attendee and organizer separately
     description: eventType.description,
     additionalNotes,
+    customInputs,
     startTime: reqBody.start,
     endTime: reqBody.end,
     organizer: {
@@ -463,6 +436,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startTime: dayjs(evt.startTime).toDate(),
       endTime: dayjs(evt.endTime).toDate(),
       description: evt.additionalNotes,
+      customInputs: isPrismaObjOrUndefined(evt.customInputs),
       confirmed: (!eventType.requiresConfirmation && !eventType.price) || !!rescheduleUid,
       location: evt.location,
       eventType: eventTypeRel,
@@ -525,7 +499,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    return prisma.booking.create(createBookingObj);
+    /* Validate if there is any stripe_payment credential for this user */
+    const stripePaymentCredential = await prisma.credential.findFirst({
+      where: {
+        type: "stripe_payment",
+        userId: users[0].id,
+      },
+      select: {
+        id: true,
+      },
+    });
+    /** eventType doesn’t require payment then we create a booking
+     * OR
+     * stripePaymentCredential is found and price is higher than 0 then we create a booking
+     */
+    if (!eventType.price || (stripePaymentCredential && eventType.price > 0)) {
+      return prisma.booking.create(createBookingObj);
+    }
+    // stripePaymentCredential not found and eventType requires payment we return null
+    return null;
   }
 
   let results: EventResult[] = [];
@@ -546,43 +538,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    const credentials = currentUser.credentials;
+    const busyTimes = await getBusyTimes({
+      credentials: currentUser.credentials,
+      startTime: reqBody.start,
+      endTime: reqBody.end,
+      eventTypeId,
+      userId: currentUser.id,
+      selectedCalendars,
+    });
 
-    const calendarBusyTimes: EventBusyDate[] = await prisma.booking
-      .findMany({
-        where: {
-          AND: [
-            {
-              userId: currentUser.id,
-              eventTypeId: eventTypeId,
-            },
-            {
-              OR: [
-                {
-                  status: "ACCEPTED",
-                },
-                {
-                  status: "PENDING",
-                },
-              ],
-            },
-          ],
-        },
-      })
-      .then((bookings) => bookings.map((booking) => ({ end: booking.endTime, start: booking.startTime })));
+    console.log("calendarBusyTimes==>>>", busyTimes);
 
-    if (credentials) {
-      await getBusyCalendarTimes(credentials, reqBody.start, reqBody.end, selectedCalendars).then(
-        (busyTimes) => calendarBusyTimes.push(...busyTimes)
-      );
-
-      const videoBusyTimes = (await getBusyVideoTimes(credentials)).filter(notEmpty);
-      calendarBusyTimes.push(...videoBusyTimes);
-    }
-
-    console.log("calendarBusyTimes==>>>", calendarBusyTimes);
-
-    const bufferedBusyTimes: BufferedBusyTimes = calendarBusyTimes.map((a) => ({
+    const bufferedBusyTimes = busyTimes.map((a) => ({
       start: dayjs(a.start).subtract(currentUser.bufferTime, "minute").toString(),
       end: dayjs(a.end).add(currentUser.bufferTime, "minute").toString(),
     }));
@@ -627,7 +594,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         periodEndDate: eventType.periodEndDate,
         periodStartDate: eventType.periodStartDate,
         periodCountCalendarDays: eventType.periodCountCalendarDays,
-        timeZone: currentUser.timeZone,
       });
     } catch {
       log.debug({
@@ -651,7 +617,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let booking: Booking | null = null;
   try {
     booking = await createBooking();
-    evt.uid = booking.uid;
+    evt.uid = booking?.uid ?? null;
   } catch (_err) {
     const err = getErrorFromUnknown(_err);
     log.error(`Booking ${eventTypeId} failed`, "Error when saving booking to db", err.message);
@@ -671,15 +637,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (originalRescheduledBooking?.uid) {
     // Use EventManager to conditionally use all needed integrations.
-    const updateManager = await eventManager.update(evt, originalRescheduledBooking.uid, booking.id);
+    const updateManager = await eventManager.update(evt, originalRescheduledBooking.uid, booking?.id);
     // This gets overridden when updating the event - to check if notes have been hidden or not. We just reset this back
     // to the default description when we are sending the emails.
     evt.description = eventType.description;
 
     results = updateManager.results;
     referencesToCreate = updateManager.referencesToCreate;
-
-    if (results.length > 0 && results.every((res) => !res.success)) {
+    if (results.length > 0 && results.some((res) => !res.success)) {
       const error = {
         errorCode: "BookingReschedulingMeetingFailed",
         message: "Booking Rescheduling failed",
@@ -746,6 +711,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ...evt,
             additionInformation: metadata,
             additionalNotes,
+            customInputs,
           },
           reqBody.recurringEventId ? (eventType.recurringEvent as RecurringEvent) : {}
         );
@@ -765,9 +731,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
   }
 
-  if (typeof eventType.price === "number" && eventType.price > 0 && !originalRescheduledBooking?.paid) {
+  if (
+    !Number.isNaN(eventType.price) &&
+    eventType.price > 0 &&
+    !originalRescheduledBooking?.paid &&
+    !!booking
+  ) {
     try {
       const [firstStripeCredential] = user.credentials.filter((cred) => cred.type == "stripe_payment");
+
+      if (!firstStripeCredential) return res.status(500).json({ message: "Missing payment credentials" });
 
       if (!booking.user) booking.user = user;
       const payment = await handlePayment(evt, eventType, firstStripeCredential, booking);
@@ -807,18 +780,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   );
   await Promise.all(promises);
   // Avoid passing referencesToCreate with id unique constrain values
-  await prisma.booking.update({
-    where: {
-      uid: booking.uid,
-    },
-    data: {
-      references: {
-        createMany: {
-          data: referencesToCreate,
-        },
-      },
-    },
-  });
   // refresh hashed link if used
   const urlSeed = `${users[0].username}:${dayjs(req.body.start).utc().format()}`;
   const hashedUid = translator.fromUUID(uuidv5(urlSeed, uuidv5.URL));
@@ -833,9 +794,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
   }
-
-  // booking successful
-  return res.status(201).json(booking);
+  if (booking) {
+    await prisma.booking.update({
+      where: {
+        uid: booking.uid,
+      },
+      data: {
+        references: {
+          createMany: {
+            data: referencesToCreate,
+          },
+        },
+      },
+    });
+    // booking successful
+    return res.status(201).json(booking);
+  }
+  return res.status(400).json({ message: "There is not a stripe_payment credential" });
 }
 
 export function getLuckyUsers(
