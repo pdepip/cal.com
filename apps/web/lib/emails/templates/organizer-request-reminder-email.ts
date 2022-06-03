@@ -32,7 +32,7 @@ export default class OrganizerRequestReminderEmail extends OrganizerScheduledEma
     }
 
     return {
-      from: `Cal.com <${this.getMailerOptions().from}>`,
+      from: `RepReach <${this.getMailerOptions().from}>`,
       to: toAddresses.join(","),
       subject: `${this.calEvent.organizer.language.translate("event_awaiting_approval_subject", {
         eventType: this.calEvent.type,

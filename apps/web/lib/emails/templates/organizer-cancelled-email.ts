@@ -31,7 +31,7 @@ export default class OrganizerCancelledEmail extends OrganizerScheduledEmail {
     }
 
     return {
-      from: `Cal.com <${this.getMailerOptions().from}>`,
+      from: `RepReach <${this.getMailerOptions().from}>`,
       to: toAddresses.join(","),
       subject: `${this.calEvent.organizer.language.translate("event_cancelled_subject", {
         eventType: this.calEvent.type,
