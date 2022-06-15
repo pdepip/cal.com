@@ -7,13 +7,14 @@ import { z } from "zod";
 import getApps, { getLocationOptions } from "@calcom/app-store/utils";
 import { getCalendarCredentials, getConnectedCalendars } from "@calcom/core/CalendarManager";
 import { checkPremiumUsername } from "@calcom/ee/lib/core/checkPremiumUsername";
-import { bookingMinimalSelect } from "@calcom/prisma";
-import { RecurringEvent } from "@calcom/types/Calendar";
+import { sendFeedbackEmail } from "@calcom/emails";
+import { parseRecurringEvent } from "@calcom/lib";
+import { baseEventTypeSelect, bookingMinimalSelect } from "@calcom/prisma";
 
 import { checkRegularUsername } from "@lib/core/checkRegularUsername";
-import { sendFeedbackEmail } from "@lib/emails/email-manager";
 import jackson from "@lib/jackson";
 import prisma from "@lib/prisma";
+import { isTeamOwner } from "@lib/queries/teams";
 import {
   hostedCal,
   isSAMLAdmin,
@@ -130,16 +131,6 @@ const loggedInViewerRouter = createProtectedRouter()
     async resolve({ ctx }) {
       const { prisma } = ctx;
       const eventTypeSelect = Prisma.validator<Prisma.EventTypeSelect>()({
-        id: true,
-        title: true,
-        description: true,
-        length: true,
-        schedulingType: true,
-        recurringEvent: true,
-        slug: true,
-        hidden: true,
-        price: true,
-        currency: true,
         position: true,
         successRedirectUrl: true,
         hashedLink: true,
@@ -150,6 +141,7 @@ const loggedInViewerRouter = createProtectedRouter()
             name: true,
           },
         },
+        ...baseEventTypeSelect,
       });
 
       const user = await prisma.user.findUnique({
@@ -247,15 +239,14 @@ const loggedInViewerRouter = createProtectedRouter()
       };
 
       let eventTypeGroups: EventTypeGroup[] = [];
-      const eventTypesHashMap = user.eventTypes.concat(typesRaw).reduce((hashMap, newItem) => {
-        const oldItem = hashMap[newItem.id] || {};
+      const eventTypesHashMap = user.eventTypes.concat(typesRaw).reduce((hashMap, newItem, currentIndex) => {
+        const oldItem = hashMap[newItem.id] || {
+          $disabled: user.plan === "FREE" && currentIndex > 0,
+        };
         hashMap[newItem.id] = { ...oldItem, ...newItem };
         return hashMap;
       }, {} as Record<number, EventTypeGroup["eventTypes"][number]>);
-      const mergedEventTypes = Object.values(eventTypesHashMap).map((et, index) => ({
-        ...et,
-        $disabled: user.plan === "FREE" && index > 0,
-      }));
+      const mergedEventTypes = Object.values(eventTypesHashMap).map((eventType) => eventType);
 
       eventTypeGroups.push({
         teamId: null,
@@ -327,7 +318,12 @@ const loggedInViewerRouter = createProtectedRouter()
             // handled separately for each occurrence
             OR: [
               {
-                AND: [{ NOT: { recurringEventId: { equals: null } } }, { confirmed: false }],
+                AND: [
+                  { NOT: { recurringEventId: { equals: null } } },
+                  { NOT: { status: { equals: BookingStatus.PENDING } } },
+                  { NOT: { status: { equals: BookingStatus.CANCELLED } } },
+                  { NOT: { status: { equals: BookingStatus.REJECTED } } },
+                ],
               },
               {
                 AND: [
@@ -397,8 +393,6 @@ const loggedInViewerRouter = createProtectedRouter()
         select: {
           ...bookingMinimalSelect,
           uid: true,
-          confirmed: true,
-          rejected: true,
           recurringEventId: true,
           location: true,
           eventType: {
@@ -439,7 +433,7 @@ const loggedInViewerRouter = createProtectedRouter()
           ...booking,
           eventType: {
             ...booking.eventType,
-            recurringEvent: ((booking.eventType && booking.eventType.recurringEvent) || {}) as RecurringEvent,
+            recurringEvent: parseRecurringEvent(booking.eventType?.recurringEvent),
           },
           startTime: booking.startTime.toISOString(),
           endTime: booking.endTime.toISOString(),
@@ -591,11 +585,18 @@ const loggedInViewerRouter = createProtectedRouter()
       });
 
       if (web3Credential) {
-        return ctx.prisma.credential.delete({
+        const deleted = await ctx.prisma.credential.delete({
           where: {
             id: web3Credential.id,
           },
         });
+        return {
+          ...deleted,
+          key: {
+            ...(deleted.key as JSONObject),
+            isWeb3Active: false,
+          },
+        };
       } else {
         return ctx.prisma.credential.create({
           data: {
@@ -849,9 +850,9 @@ const loggedInViewerRouter = createProtectedRouter()
       encodedRawMetadata: z.string(),
       teamId: z.union([z.number(), z.null(), z.undefined()]),
     }),
-    async resolve({ input }) {
+    async resolve({ ctx, input }) {
       const { encodedRawMetadata, teamId } = input;
-
+      if (teamId && !(await isTeamOwner(ctx.user?.id, teamId))) throw new TRPCError({ code: "UNAUTHORIZED" });
       const { apiController } = await jackson();
 
       try {
@@ -872,8 +873,9 @@ const loggedInViewerRouter = createProtectedRouter()
     input: z.object({
       teamId: z.union([z.number(), z.null(), z.undefined()]),
     }),
-    async resolve({ input }) {
+    async resolve({ ctx, input }) {
       const { teamId } = input;
+      if (teamId && !(await isTeamOwner(ctx.user?.id, teamId))) throw new TRPCError({ code: "UNAUTHORIZED" });
 
       const { apiController } = await jackson();
 
@@ -897,7 +899,8 @@ const loggedInViewerRouter = createProtectedRouter()
       const { rating, comment } = input;
 
       const feedback = {
-        userId: ctx.user.id,
+        username: ctx.user.name || "Nameless",
+        email: ctx.user.email || "No email address",
         rating: rating,
         comment: comment,
       };
