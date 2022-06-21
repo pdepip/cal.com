@@ -34,7 +34,10 @@ function TeamPage({ team }: TeamPageProps) {
   const isEmbed = useIsEmbed();
   const telemetry = useTelemetry();
   const router = useRouter();
-  const queryParams = new URLSearchParams(router.query).toString();
+  const queryParams = new URLSearchParams({
+    email: router.query.email as string,
+    name: router.query.name as string,
+  }).toString();
 
   useEffect(() => {
     telemetry.event(
