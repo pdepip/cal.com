@@ -34,6 +34,7 @@ function TeamPage({ team }: TeamPageProps) {
   const isEmbed = useIsEmbed();
   const telemetry = useTelemetry();
   const router = useRouter();
+  const queryParams = new URLSearchParams(router.query).toString();
 
   useEffect(() => {
     telemetry.event(
@@ -52,7 +53,7 @@ function TeamPage({ team }: TeamPageProps) {
             isEmbed ? "" : "bg-white"
           )}>
           <Icon.FiArrowRight className="absolute right-3 top-3 h-4 w-4 text-black opacity-0 transition-opacity group-hover:opacity-100 dark:text-white" />
-          <Link href={`${team.slug}/${type.slug}`}>
+          <Link href={`${team.slug}/${type.slug}?${queryParams}`}>
             <a className="flex justify-between p-5">
               <div className="flex-shrink">
                 <h2 className="font-cal font-semibold text-neutral-900 dark:text-white">{type.title}</h2>
