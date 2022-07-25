@@ -1,17 +1,16 @@
 import { ClipboardCopyIcon } from "@heroicons/react/solid";
-import dayjs from "dayjs";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
+import dayjs from "@calcom/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import showToast from "@calcom/lib/notification";
+import { trpc } from "@calcom/trpc/react";
 import Button from "@calcom/ui/Button";
 import { DialogFooter } from "@calcom/ui/Dialog";
 import Switch from "@calcom/ui/Switch";
 import { Tooltip } from "@calcom/ui/Tooltip";
 import { Form, TextField } from "@calcom/ui/form/fields";
-
-import { trpc } from "@lib/trpc";
 
 import { DatePicker } from "@components/ui/form/DatePicker";
 
@@ -67,7 +66,7 @@ export default function ApiKeyDialogForm(props: {
               <code className="my-2 mr-1 w-full truncate rounded-sm bg-gray-100 py-2 px-3 align-middle font-mono text-gray-800">
                 {apiKey}
               </code>
-              <Tooltip content={t("copy_to_clipboard")}>
+              <Tooltip side="top" content={t("copy_to_clipboard")}>
                 <Button
                   onClick={() => {
                     navigator.clipboard.writeText(apiKey);

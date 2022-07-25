@@ -22,6 +22,7 @@ import React, { Fragment, useEffect, useState } from "react";
 import { CAL_URL, WEBAPP_URL } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import showToast from "@calcom/lib/notification";
+import { inferQueryOutput, trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui";
 import { Alert } from "@calcom/ui/Alert";
 import { Dialog } from "@calcom/ui/Dialog";
@@ -37,7 +38,6 @@ import { Tooltip } from "@calcom/ui/Tooltip";
 import { withQuery } from "@lib/QueryCell";
 import classNames from "@lib/classNames";
 import { HttpError } from "@lib/core/http/error";
-import { inferQueryOutput, trpc } from "@lib/trpc";
 
 import { EmbedButton, EmbedDialog } from "@components/Embed";
 import Shell from "@components/Shell";
@@ -48,6 +48,8 @@ import SkeletonLoader from "@components/eventtype/SkeletonLoader";
 import Avatar from "@components/ui/Avatar";
 import AvatarGroup from "@components/ui/AvatarGroup";
 import Badge from "@components/ui/Badge";
+
+import { TRPCClientError } from "@trpc/react";
 
 type EventTypeGroups = inferQueryOutput<"viewer.eventTypes">["eventTypeGroups"];
 type EventTypeGroupProfile = EventTypeGroups[number]["profile"];
@@ -193,6 +195,8 @@ export const EventTypeList = ({ group, groupIndex, readOnly, types }: EventTypeL
         const message = `${err.statusCode}: ${err.message}`;
         showToast(message, "error");
         setDeleteDialogOpen(false);
+      } else if (err instanceof TRPCClientError) {
+        showToast(err.message, "error");
       }
     },
   });
@@ -250,6 +254,7 @@ export const EventTypeList = ({ group, groupIndex, readOnly, types }: EventTypeL
                         items={type.users.map((organizer) => ({
                           alt: organizer.name || "",
                           image: `${WEBAPP_URL}/${organizer.username}/avatar.png`,
+                          title: organizer.name || "",
                         }))}
                       />
                     )}
@@ -258,7 +263,7 @@ export const EventTypeList = ({ group, groupIndex, readOnly, types }: EventTypeL
                         "flex justify-between space-x-2 rtl:space-x-reverse ",
                         type.$disabled && "pointer-events-none cursor-not-allowed"
                       )}>
-                      <Tooltip content={t("preview") as string}>
+                      <Tooltip side="top" content={t("preview") as string}>
                         <a
                           href={`${CAL_URL}/${group.profile.slug}/${type.slug}`}
                           target="_blank"
@@ -270,7 +275,7 @@ export const EventTypeList = ({ group, groupIndex, readOnly, types }: EventTypeL
                         </a>
                       </Tooltip>
 
-                      <Tooltip content={t("copy_link") as string}>
+                      <Tooltip side="top" content={t("copy_link") as string}>
                         <button
                           onClick={() => {
                             showToast(t("link_copied"), "success");
@@ -327,22 +332,26 @@ export const EventTypeList = ({ group, groupIndex, readOnly, types }: EventTypeL
                               "w-full rounded-none",
                               type.$disabled && " pointer-events-none cursor-not-allowed opacity-30"
                             )}
-                            eventTypeId={type.id}></EmbedButton>
+                            eventTypeId={type.id}
+                          />
                         </DropdownMenuItem>
                         <DropdownMenuSeparator className="h-px bg-gray-200" />
-                        <DropdownMenuItem>
-                          <Button
-                            onClick={() => {
-                              setDeleteDialogOpen(true);
-                              setDeleteDialogTypeId(type.id);
-                            }}
-                            color="warn"
-                            size="sm"
-                            StartIcon={TrashIcon}
-                            className="w-full rounded-none">
-                            {t("delete") as string}
-                          </Button>
-                        </DropdownMenuItem>
+                        {/* readonly is only set when we are on a team - if we are on a user event type null will be the value. */}
+                        {(group.metadata?.readOnly === false || group.metadata.readOnly === null) && (
+                          <DropdownMenuItem>
+                            <Button
+                              onClick={() => {
+                                setDeleteDialogOpen(true);
+                                setDeleteDialogTypeId(type.id);
+                              }}
+                              color="warn"
+                              size="sm"
+                              StartIcon={TrashIcon}
+                              className="w-full rounded-none">
+                              {t("delete") as string}
+                            </Button>
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </Dropdown>
                   </div>

@@ -8,22 +8,19 @@ import {
   UseQueryResult,
 } from "react-query";
 
-import { Alert } from "@calcom/ui/Alert";
-
-import { trpc } from "@lib/trpc";
-
-import Loader from "@components/Loader";
-
-import type { AppRouter } from "@server/routers/_app";
-import type { TRPCClientErrorLike } from "@trpc/client";
-import type { UseTRPCQueryOptions } from "@trpc/react";
-// import type { inferProcedures } from "@trpc/react/src/createReactQueryHooks";
+import type { TRPCClientErrorLike } from "@calcom/trpc/client";
+import { trpc } from "@calcom/trpc/react";
+import type { UseTRPCQueryOptions } from "@calcom/trpc/react";
 import type {
   inferHandlerInput,
   inferProcedureInput,
   inferProcedureOutput,
   ProcedureRecord,
-} from "@trpc/server";
+} from "@calcom/trpc/server";
+import type { AppRouter } from "@calcom/trpc/server/routers/_app";
+import { Alert } from "@calcom/ui/Alert";
+
+import Loader from "@components/Loader";
 
 type ErrorLike = {
   message: string;
@@ -101,7 +98,13 @@ type TError = TRPCClientErrorLike<AppRouter>;
 
 const withQuery = <TPath extends keyof TQueryValues & string>(
   pathAndInput: [path: TPath, ...args: inferHandlerInput<TQueries[TPath]>],
-  params?: UseTRPCQueryOptions<TPath, TQueryValues[TPath]["input"], TQueryValues[TPath]["output"], TError>
+  params?: UseTRPCQueryOptions<
+    TPath,
+    TQueryValues[TPath]["input"],
+    TQueryValues[TPath]["output"],
+    TQueryValues[TPath]["output"],
+    TError
+  >
 ) => {
   return function WithQuery(
     opts: Omit<

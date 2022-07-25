@@ -1,9 +1,10 @@
 import { Prisma } from "@prisma/client";
-import dayjs from "dayjs";
 import { z } from "zod";
 
+import dayjs, { Dayjs } from "@calcom/dayjs";
 import { getWorkingHours } from "@calcom/lib/availability";
 import { HttpError } from "@calcom/lib/http-error";
+import logger from "@calcom/lib/logger";
 import prisma, { availabilityUserSelect } from "@calcom/prisma";
 import { stringToDayjs } from "@calcom/prisma/zod-utils";
 
@@ -17,6 +18,7 @@ const availabilitySchema = z
     timezone: z.string().optional(),
     username: z.string().optional(),
     userId: z.number().optional(),
+    afterEventBuffer: z.number().optional(),
   })
   .refine((data) => !!data.username || !!data.userId, "Either username or userId should be filled in.");
 
@@ -24,6 +26,7 @@ const getEventType = (id: number) =>
   prisma.eventType.findUnique({
     where: { id },
     select: {
+      id: true,
       seatsPerTimeSlot: true,
       timeZone: true,
       schedule: {
@@ -52,6 +55,28 @@ const getUser = (where: Prisma.UserWhereUniqueInput) =>
 
 type User = Awaited<ReturnType<typeof getUser>>;
 
+export const getCurrentSeats = (eventTypeId: number, dateFrom: Dayjs, dateTo: Dayjs) =>
+  prisma.booking.findMany({
+    where: {
+      eventTypeId,
+      startTime: {
+        gte: dateFrom.format(),
+        lte: dateTo.format(),
+      },
+    },
+    select: {
+      uid: true,
+      startTime: true,
+      _count: {
+        select: {
+          attendees: true,
+        },
+      },
+    },
+  });
+
+export type CurrentSeats = Awaited<ReturnType<typeof getCurrentSeats>>;
+
 export async function getUserAvailability(
   query: {
     username?: string;
@@ -60,13 +85,16 @@ export async function getUserAvailability(
     dateTo: string;
     eventTypeId?: number;
     timezone?: string;
+    afterEventBuffer?: number;
   },
   initialData?: {
     user?: User;
     eventType?: EventType;
+    currentSeats?: CurrentSeats;
   }
 ) {
-  const { username, userId, dateFrom, dateTo, eventTypeId, timezone } = availabilitySchema.parse(query);
+  const { username, userId, dateFrom, dateTo, eventTypeId, timezone, afterEventBuffer } =
+    availabilitySchema.parse(query);
 
   if (!dateFrom.isValid() || !dateTo.isValid())
     throw new HttpError({ statusCode: 400, message: "Invalid time range given." });
@@ -82,6 +110,12 @@ export async function getUserAvailability(
   let eventType: EventType | null = initialData?.eventType || null;
   if (!eventType && eventTypeId) eventType = await getEventType(eventTypeId);
 
+  /* Current logic is if a booking is in a time slot mark it as busy, but seats can have more than one attendee so grab
+  current bookings with a seats event type and display them on the calendar, even if they are full */
+  let currentSeats: CurrentSeats | null = initialData?.currentSeats || null;
+  if (!currentSeats && eventType?.seatsPerTimeSlot)
+    currentSeats = await getCurrentSeats(eventType.id, dateFrom, dateTo);
+
   const { selectedCalendars, ...currentUser } = user;
 
   const busyTimes = await getBusyTimes({
@@ -95,10 +129,10 @@ export async function getUserAvailability(
 
   const bufferedBusyTimes = busyTimes.map((a) => ({
     start: dayjs(a.start).subtract(currentUser.bufferTime, "minute").toISOString(),
-    end: dayjs(a.end).add(currentUser.bufferTime, "minute").toISOString(),
+    end: dayjs(a.end)
+      .add(currentUser.bufferTime + (afterEventBuffer || 0), "minute")
+      .toISOString(),
   }));
-
-  const timeZone = timezone || eventType?.timeZone || currentUser.timeZone;
 
   const schedule = eventType?.schedule
     ? { ...eventType?.schedule }
@@ -108,36 +142,15 @@ export async function getUserAvailability(
         )[0],
       };
 
+  const timeZone = timezone || schedule?.timeZone || eventType?.timeZone || currentUser.timeZone;
+  const startGetWorkingHours = performance.now();
   const workingHours = getWorkingHours(
     { timeZone },
     schedule.availability ||
       (eventType?.availability.length ? eventType.availability : currentUser.availability)
   );
-
-  /* Current logic is if a booking is in a time slot mark it as busy, but seats can have more than one attendee so grab
-  current bookings with a seats event type and display them on the calendar, even if they are full */
-  let currentSeats;
-  if (eventType?.seatsPerTimeSlot) {
-    currentSeats = await prisma.booking.findMany({
-      where: {
-        eventTypeId: eventTypeId,
-        startTime: {
-          gte: dateFrom.format(),
-          lte: dateTo.format(),
-        },
-      },
-      select: {
-        uid: true,
-        startTime: true,
-        _count: {
-          select: {
-            attendees: true,
-          },
-        },
-      },
-    });
-  }
-
+  const endGetWorkingHours = performance.now();
+  logger.debug(`getWorkingHours took ${endGetWorkingHours - startGetWorkingHours}ms for userId ${userId}`);
   return {
     busy: bufferedBusyTimes,
     timeZone,

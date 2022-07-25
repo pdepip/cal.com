@@ -1,16 +1,15 @@
 import { PlusIcon, TrashIcon } from "@heroicons/react/outline";
 import { DuplicateIcon } from "@heroicons/react/solid";
 import classNames from "classnames";
-import dayjs, { Dayjs, ConfigType } from "dayjs";
-import timezone from "dayjs/plugin/timezone";
-import utc from "dayjs/plugin/utc";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useFieldArray, useFormContext } from "react-hook-form";
 import { GroupBase, Props } from "react-select";
 
+import dayjs, { Dayjs, ConfigType } from "@calcom/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import Button from "@calcom/ui/Button";
-import Dropdown, { DropdownMenuTrigger, DropdownMenuContent } from "@calcom/ui/Dropdown";
+import Dropdown, { DropdownMenuContent } from "@calcom/ui/Dropdown";
+import { Tooltip } from "@calcom/ui/Tooltip";
 
 import { defaultDayRange } from "@lib/availability";
 import { weekdayNames } from "@lib/core/i18n/weekday";
@@ -18,9 +17,6 @@ import useMeQuery from "@lib/hooks/useMeQuery";
 import { TimeRange } from "@lib/types/schedule";
 
 import Select from "@components/ui/form/Select";
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 /** Begin Time Increments For Select */
 const increment = 15;
@@ -207,7 +203,7 @@ export const DayRanges = ({
   const { setValue, watch } = useFormContext();
   // XXX: Hack to make copying times work; `fields` is out of date until save.
   const watcher = watch(name);
-
+  const { t } = useLocale();
   const { fields, replace, append, remove } = useFieldArray({
     name,
   });
@@ -247,16 +243,18 @@ export const DayRanges = ({
           </div>
           {index === 0 && (
             <div className="absolute top-2 right-0 text-right sm:relative sm:top-0 sm:flex-grow">
-              <Button
-                className="text-neutral-400"
-                type="button"
-                color="minimal"
-                size="icon"
-                StartIcon={PlusIcon}
-                onClick={handleAppend}
-              />
+              <Tooltip content={t("add_time_availability") as string}>
+                <Button
+                  className="text-neutral-400"
+                  type="button"
+                  color="minimal"
+                  size="icon"
+                  StartIcon={PlusIcon}
+                  onClick={handleAppend}
+                />
+              </Tooltip>
               <Dropdown>
-                <DropdownMenuTrigger asChild>
+                <Tooltip content={t("duplicate") as string}>
                   <Button
                     type="button"
                     color="minimal"
@@ -264,7 +262,7 @@ export const DayRanges = ({
                     StartIcon={DuplicateIcon}
                     onClick={handleAppend}
                   />
-                </DropdownMenuTrigger>
+                </Tooltip>
                 <DropdownMenuContent>
                   <CopyTimes
                     disabled={[parseInt(name.substring(name.lastIndexOf(".") + 1), 10)]}

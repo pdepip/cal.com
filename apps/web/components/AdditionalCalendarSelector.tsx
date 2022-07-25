@@ -4,11 +4,11 @@ import { OptionProps } from "react-select";
 
 import { InstallAppButton } from "@calcom/app-store/components";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import { trpc } from "@calcom/trpc/react";
 import type { App } from "@calcom/types/App";
 import { Button } from "@calcom/ui";
 
 import { QueryCell } from "@lib/QueryCell";
-import { trpc } from "@lib/trpc";
 
 interface AdditionalCalendarSelectorProps {
   isLoading?: boolean;
@@ -50,7 +50,7 @@ const AdditionalCalendarSelector = ({ isLoading }: AdditionalCalendarSelectorPro
         }));
         return (
           <Select
-            name={"additionalCalendar"}
+            name="additionalCalendar"
             placeholder={t("connect_additional_calendar")}
             options={options}
             styles={{
@@ -65,6 +65,10 @@ const AdditionalCalendarSelector = ({ isLoading }: AdditionalCalendarSelectorPro
                 return {
                   ...defaultStyles,
                   borderRadius: "2px",
+                  "@media only screen and (min-width: 640px)": {
+                    ...(defaultStyles["@media only screen and (min-width: 640px)"] as object),
+                    maxWidth: "320px",
+                  },
                 };
               },
             }}
