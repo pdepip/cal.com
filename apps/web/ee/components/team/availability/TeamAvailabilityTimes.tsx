@@ -1,11 +1,10 @@
 import classNames from "classnames";
-import dayjs, { Dayjs } from "dayjs";
-import utc from "dayjs/plugin/utc";
 import React from "react";
 import { ITimezone } from "react-timezone-select";
 
-import getSlots from "@lib/slots";
-import { trpc } from "@lib/trpc";
+import { Dayjs } from "@calcom/dayjs";
+import getSlots from "@calcom/lib/slots";
+import { trpc } from "@calcom/trpc/react";
 
 import Loader from "@components/Loader";
 
@@ -18,8 +17,6 @@ interface Props {
   HeaderComponent?: React.ReactNode;
   className?: string;
 }
-
-dayjs.extend(utc);
 
 export default function TeamAvailabilityTimes(props: Props) {
   const { data, isLoading } = trpc.useQuery(

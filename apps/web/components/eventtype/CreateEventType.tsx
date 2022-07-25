@@ -6,9 +6,11 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
+import { WEBAPP_URL } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import showToast from "@calcom/lib/notification";
 import { createEventTypeInput } from "@calcom/prisma/zod/custom/eventtype";
+import { trpc } from "@calcom/trpc/react";
 import { Alert } from "@calcom/ui/Alert";
 import { Button } from "@calcom/ui/Button";
 import { Dialog, DialogClose, DialogContent } from "@calcom/ui/Dialog";
@@ -23,7 +25,6 @@ import { Form, InputLeading, TextAreaField, TextField } from "@calcom/ui/form/fi
 
 import { HttpError } from "@lib/core/http/error";
 import { slugify } from "@lib/slugify";
-import { trpc } from "@lib/trpc";
 
 import Avatar from "@components/ui/Avatar";
 import * as RadioArea from "@components/ui/form/radio-area";
@@ -164,7 +165,7 @@ export default function CreateEventTypeButton(props: Props) {
                 onSelect={() => openModal(option)}>
                 <Avatar
                   alt={option.name || ""}
-                  imageSrc={option.image}
+                  imageSrc={option.image || `${WEBAPP_URL}/${option.slug}/avatar.png`} // if no image, use default avatar
                   size={6}
                   className="inline ltr:mr-2 rtl:ml-2"
                 />
@@ -175,7 +176,7 @@ export default function CreateEventTypeButton(props: Props) {
         </Dropdown>
       )}
 
-      <DialogContent>
+      <DialogContent className="overflow-y-auto">
         <div className="mb-4">
           <h3 className="text-lg font-bold leading-6 text-gray-900" id="modal-title">
             {teamId ? t("add_new_team_event_type") : t("add_new_event_type")}
@@ -200,16 +201,26 @@ export default function CreateEventTypeButton(props: Props) {
             )}
             <TextField label={t("title")} placeholder={t("quick_chat")} {...register("title")} />
 
-            <TextField
-              label={t("url")}
-              required
-              addOnLeading={
-                <InputLeading>
-                  {process.env.NEXT_PUBLIC_WEBSITE_URL}/{pageSlug}/
-                </InputLeading>
-              }
-              {...register("slug")}
-            />
+            {process.env.NEXT_PUBLIC_WEBSITE_URL !== undefined &&
+            process.env.NEXT_PUBLIC_WEBSITE_URL?.length >= 21 ? (
+              <TextField
+                label={`${t("url")}: ${process.env.NEXT_PUBLIC_WEBSITE_URL}`}
+                required
+                addOnLeading={<InputLeading>/{pageSlug}/</InputLeading>}
+                {...register("slug")}
+              />
+            ) : (
+              <TextField
+                label={t("url")}
+                required
+                addOnLeading={
+                  <InputLeading>
+                    {process.env.NEXT_PUBLIC_WEBSITE_URL}/{pageSlug}/
+                  </InputLeading>
+                }
+                {...register("slug")}
+              />
+            )}
 
             <TextAreaField
               label={t("description")}
@@ -247,7 +258,7 @@ export default function CreateEventTypeButton(props: Props) {
                 <RadioArea.Group
                   {...register("schedulingType")}
                   onChange={(val) => form.setValue("schedulingType", val as SchedulingType)}
-                  className="relative mt-1 flex space-x-6 rounded-sm shadow-sm rtl:space-x-reverse">
+                  className="relative mt-1 flex space-x-6 rounded-sm rtl:space-x-reverse">
                   <RadioArea.Item
                     value={SchedulingType.COLLECTIVE}
                     defaultChecked={type === SchedulingType.COLLECTIVE}

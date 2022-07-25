@@ -5,11 +5,11 @@ import { useWatch } from "react-hook-form";
 
 import classNames from "@calcom/lib/classNames";
 import showToast from "@calcom/lib/notification";
+import { trpc } from "@calcom/trpc/react";
 import Button from "@calcom/ui/Button";
 import { InputGroupBox } from "@calcom/ui/form/fields";
 
 import { useLocale } from "@lib/hooks/useLocale";
-import { trpc } from "@lib/trpc";
 
 export default function WebhookTestDisclosure() {
   const subscriberUrl: string = useWatch({ name: "subscriberUrl" });
@@ -24,7 +24,7 @@ export default function WebhookTestDisclosure() {
 
   return (
     <Collapsible open={open} onOpenChange={() => setOpen(!open)}>
-      <CollapsibleTrigger type="button" className={"flex w-full cursor-pointer"}>
+      <CollapsibleTrigger type="button" className="flex w-full cursor-pointer">
         <ChevronRightIcon className={`${open ? "rotate-90 transform" : ""} h-5 w-5 text-neutral-500`} />
         <span className="text-sm font-medium text-gray-700">{t("webhook_test")}</span>
       </CollapsibleTrigger>

@@ -4,12 +4,11 @@ import React, { useRef, useState } from "react";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import showToast from "@calcom/lib/notification";
 import { objectKeys } from "@calcom/lib/objectKeys";
+import { TeamWithMembers } from "@calcom/lib/server/queries/teams";
+import { trpc } from "@calcom/trpc/react";
 import { Alert } from "@calcom/ui/Alert";
 import Button from "@calcom/ui/Button";
 import { TextField } from "@calcom/ui/form/fields";
-
-import { TeamWithMembers } from "@lib/queries/teams";
-import { trpc } from "@lib/trpc";
 
 import ImageUploader from "@components/ImageUploader";
 import SettingInputContainer from "@components/ui/SettingInputContainer";
@@ -92,7 +91,7 @@ export default function TeamSettings(props: Props) {
                       id="team-url"
                       addOnLeading={
                         <span className="inline-flex items-center rounded-l-sm border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500">
-                          {process.env.NEXT_PUBLIC_WEBSITE_URL}/{"team/"}
+                          {process.env.NEXT_PUBLIC_WEBSITE_URL}/team/
                         </span>
                       }
                       ref={teamUrlRef}
@@ -112,7 +111,7 @@ export default function TeamSettings(props: Props) {
                       id="name"
                       placeholder={t("your_team_name")}
                       required
-                      className="mt-1 block w-full rounded-sm border border-gray-300 px-3 py-2 shadow-sm sm:text-sm"
+                      className="mt-1 block w-full rounded-sm border border-gray-300 px-3 py-2 sm:text-sm"
                       defaultValue={team?.name as string}
                     />
                   }
@@ -131,7 +130,8 @@ export default function TeamSettings(props: Props) {
                           name="about"
                           rows={3}
                           defaultValue={team?.bio as string}
-                          className="mt-1 block w-full rounded-sm border-gray-300 shadow-sm sm:text-sm"></textarea>
+                          className="mt-1 block w-full rounded-sm border-gray-300 sm:text-sm"
+                        />
                         <p className="mt-2 text-sm text-gray-500">{t("team_description")}</p>
                       </>
                     }
@@ -140,7 +140,7 @@ export default function TeamSettings(props: Props) {
                 <div>
                   <SettingInputContainer
                     Icon={PhotographIcon}
-                    label={"Logo"}
+                    label="Logo"
                     htmlFor="avatar"
                     Input={
                       <>
@@ -151,7 +151,7 @@ export default function TeamSettings(props: Props) {
                             name="avatar"
                             id="avatar"
                             placeholder="URL"
-                            className="mt-1 block w-full rounded-sm border border-gray-300 px-3 py-2 shadow-sm sm:text-sm"
+                            className="mt-1 block w-full rounded-sm border border-gray-300 px-3 py-2 sm:text-sm"
                             defaultValue={team?.logo ?? undefined}
                           />
                           <ImageUploader

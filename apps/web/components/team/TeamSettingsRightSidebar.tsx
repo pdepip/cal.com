@@ -5,11 +5,11 @@ import { useRouter } from "next/router";
 import React from "react";
 
 import showToast from "@calcom/lib/notification";
+import { TeamWithMembers } from "@calcom/lib/server/queries/teams";
+import { trpc } from "@calcom/trpc/react";
 import { Dialog, DialogTrigger } from "@calcom/ui/Dialog";
 
 import { useLocale } from "@lib/hooks/useLocale";
-import { TeamWithMembers } from "@lib/queries/teams";
-import { trpc } from "@lib/trpc";
 
 import ConfirmationDialogContent from "@components/dialog/ConfirmationDialogContent";
 import CreateEventTypeButton from "@components/eventtype/CreateEventType";
@@ -120,7 +120,7 @@ export default function TeamSettingsRightSidebar(props: { team: TeamWithMembers;
       {props.team?.id && props.role !== MembershipRole.MEMBER && (
         <Link href={`/settings/teams/${props.team.id}/availability`}>
           <div className="mt-5 hidden space-y-1 sm:block">
-            <LinkIconButton Icon={ClockIcon}>{"View Availability"}</LinkIconButton>
+            <LinkIconButton Icon={ClockIcon}>View Availability</LinkIconButton>
             <p className="mt-2 text-sm text-gray-500">See your team members availability at a glance.</p>
           </div>
         </Link>

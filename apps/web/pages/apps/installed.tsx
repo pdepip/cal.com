@@ -3,8 +3,10 @@ import Image from "next/image";
 import React from "react";
 
 import { InstallAppButton } from "@calcom/app-store/components";
+import { WEBSITE_URL } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import showToast from "@calcom/lib/notification";
+import { trpc } from "@calcom/trpc/react";
 import type { App } from "@calcom/types/App";
 import { Alert } from "@calcom/ui/Alert";
 import Button from "@calcom/ui/Button";
@@ -13,7 +15,6 @@ import EmptyScreen from "@calcom/ui/EmptyScreen";
 import { QueryCell } from "@lib/QueryCell";
 import classNames from "@lib/classNames";
 import { HttpError } from "@lib/core/http/error";
-import { trpc } from "@lib/trpc";
 
 import AppsShell from "@components/AppsShell";
 import { List, ListItem, ListItemText, ListItemTitle } from "@components/List";
@@ -21,7 +22,6 @@ import Shell, { ShellSubHeading } from "@components/Shell";
 import SkeletonLoader from "@components/apps/SkeletonLoader";
 import { CalendarListContainer } from "@components/integrations/CalendarListContainer";
 import DisconnectIntegration from "@components/integrations/DisconnectIntegration";
-import DisconnectStripeIntegration from "@components/integrations/DisconnectStripeIntegration";
 import IntegrationListItem from "@components/integrations/IntegrationListItem";
 import SubHeadingTitleWithConnections from "@components/integrations/SubHeadingTitleWithConnections";
 
@@ -42,7 +42,7 @@ function ConnectOrDisconnectIntegrationButton(props: {
   if (credentialId) {
     if (type === "stripe_payment") {
       return (
-        <DisconnectStripeIntegration
+        <DisconnectIntegration
           id={credentialId}
           render={(btnProps) => (
             <Button {...btnProps} color="warn" data-testid="integration-connection-button">
@@ -101,7 +101,6 @@ interface IntegrationsContainerProps {
 const IntegrationsContainer = ({ variant, className = "" }: IntegrationsContainerProps): JSX.Element => {
   const { t } = useLocale();
   const query = trpc.useQuery(["viewer.integrations", { variant, onlyInstalled: true }], { suspense: true });
-
   return (
     <QueryCell
       query={query}
@@ -119,6 +118,7 @@ const IntegrationsContainer = ({ variant, className = "" }: IntegrationsContaine
                 <List>
                   {data.items.map((item) => (
                     <IntegrationListItem
+                      slug={item.slug}
                       key={item.title}
                       title={item.title}
                       imageSrc={item.imageSrc}
@@ -163,7 +163,7 @@ function Web3Container() {
                       <a
                         className="text-blue-500"
                         target="_blank"
-                        href="https://cal.com/web3"
+                        href={`${WEBSITE_URL}/web3`}
                         rel="noreferrer">
                         Read more
                       </a>
