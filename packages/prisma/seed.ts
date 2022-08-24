@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { BookingStatus, MembershipRole, Prisma, UserPermissionRole, UserPlan } from "@prisma/client";
 import { uuid } from "short-uuid";
 
@@ -6,8 +7,10 @@ import { hashPassword } from "@calcom/lib/auth";
 import { DEFAULT_SCHEDULE, getAvailabilityFromSchedule } from "@calcom/lib/availability";
 
 import prisma from ".";
-import "./seed-app-store";
+import mainAppStore from "./seed-app-store";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 require("dotenv").config({ path: "../../.env" });
 async function createUserAndEventType(opts: {
   user: {
@@ -564,6 +567,7 @@ async function main() {
 }
 
 main()
+  .then(() => mainAppStore())
   .catch((e) => {
     console.error(e);
     process.exit(1);

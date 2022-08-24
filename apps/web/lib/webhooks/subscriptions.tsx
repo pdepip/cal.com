@@ -1,6 +1,6 @@
 import { WebhookTriggerEvents } from "@prisma/client";
 
-import prisma from "@lib/prisma";
+import prisma from "@calcom/prisma";
 
 export type GetSubscriberOptions = {
   userId: number;
@@ -30,6 +30,7 @@ const getWebhooks = async (options: GetSubscriberOptions) => {
       },
     },
     select: {
+      id: true,
       subscriberUrl: true,
       payloadTemplate: true,
       appId: true,

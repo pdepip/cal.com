@@ -71,14 +71,17 @@ export type ExpectedUrlDetails = {
 };
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace PlaywrightTest {
     //FIXME: how to restrict it to Frame only
     interface Matchers<R> {
       toBeEmbedCalLink(
         calNamespace: string,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         getActionFiredDetails: Function,
         expectedUrlDetails?: ExpectedUrlDetails
-      ): R;
+      ): Promise<R>;
     }
   }
 }
@@ -88,6 +91,8 @@ expect.extend({
     iframe: Frame,
     calNamespace: string,
     //TODO: Move it to testUtil, so that it doesn't need to be passed
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     getActionFiredDetails: Function,
     expectedUrlDetails: ExpectedUrlDetails = {}
   ) {
@@ -149,6 +154,37 @@ expect.extend({
       }, 500);
     });
 
+    //At this point we know that window.initialBodyDisplay would be set as DOM would already have been ready(because linkReady event can only fire after that)
+    const {
+      display: displayBefore,
+      background: backgroundBefore,
+      initialValuesSet,
+    } = await iframe.evaluate(() => {
+      return {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-ignore
+        display: window.initialBodyDisplay,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-ignore
+        background: window.initialBodyBackground,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-ignore
+        initialValuesSet: window.initialValuesSet,
+      };
+    });
+    expect(initialValuesSet).toBe(true);
+    expect(displayBefore).toBe("none");
+    expect(backgroundBefore).toBe("transparent");
+
+    const { display: displayAfter, background: backgroundAfter } = await iframe.evaluate(() => {
+      return {
+        display: document.body.style.display,
+        background: document.body.style.background,
+      };
+    });
+
+    expect(displayAfter).not.toBe("none");
+    expect(backgroundAfter).toBe("transparent");
     if (!iframeReadyEventDetail) {
       return {
         pass: false,

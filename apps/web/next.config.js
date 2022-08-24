@@ -4,17 +4,18 @@ const withTM = require("next-transpile-modules")([
   "@calcom/app-store",
   "@calcom/core",
   "@calcom/dayjs",
-  "@calcom/ee",
   "@calcom/emails",
   "@calcom/embed-core",
   "@calcom/embed-react",
   "@calcom/embed-snippet",
+  "@calcom/features",
   "@calcom/lib",
   "@calcom/prisma",
-  "@calcom/stripe",
   "@calcom/trpc",
   "@calcom/ui",
 ]);
+
+const { withAxiom } = require("next-axiom");
 const { i18n } = require("./next-i18next.config");
 
 if (!process.env.NEXTAUTH_SECRET) throw new Error("Please set NEXTAUTH_SECRET");
@@ -71,6 +72,7 @@ if (process.env.ANALYZE === "true") {
 }
 
 plugins.push(withTM);
+plugins.push(withAxiom);
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
@@ -81,6 +83,15 @@ const nextConfig = {
       // by next.js will be dropped. Doesn't make much sense, but how it is
       fs: false,
     };
+
+    /**
+     * TODO: Find more possible barrels for this project.
+     *  @see https://github.com/vercel/next.js/issues/12557#issuecomment-1196931845
+     **/
+    config.module.rules.push({
+      test: [/lib\/.*.tsx?/i],
+      sideEffects: false,
+    });
 
     return config;
   },
@@ -97,6 +108,10 @@ const nextConfig = {
       {
         source: "/forms/:formId",
         destination: "/apps/routing_forms/routing-link/:formId",
+      },
+      {
+        source: "/router",
+        destination: "/apps/routing_forms/router",
       },
       /* TODO: have these files being served from another deployment or CDN {
         source: "/embed/embed.js",
@@ -119,6 +134,20 @@ const nextConfig = {
       {
         source: "/call/:path*",
         destination: "/video/:path*",
+        permanent: false,
+      },
+      /* Attempt to mitigate DDoS attack */
+      {
+        source: "/api/auth/:path*",
+        has: [
+          {
+            type: "query",
+            key: "callbackUrl",
+            // prettier-ignore
+            value: "^(?!https?:\/\/).*$",
+          },
+        ],
+        destination: "/404",
         permanent: false,
       },
     ];

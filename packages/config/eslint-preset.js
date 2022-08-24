@@ -1,7 +1,7 @@
 /** @type {import("eslint").Linter.Config} */
 module.exports = {
   root: true,
-  extends: ["plugin:playwright/playwright-test", "next", "plugin:prettier/recommended"],
+  extends: ["plugin:playwright/playwright-test", "next", "plugin:prettier/recommended", "turbo"],
   parserOptions: {
     tsconfigRootDir: __dirname,
     project: ["./tsconfig.json"],
@@ -15,6 +15,8 @@ module.exports = {
   rules: {
     "@next/next/no-img-element": "off",
     "@next/next/no-html-link-for-pages": "off",
+    "turbo/no-undeclared-env-vars": "off",
+    "@typescript-eslint/no-var-requires": "off",
     "jsx-a11y/role-supports-aria-props": "off", // @see https://github.com/vercel/next.js/issues/27989#issuecomment-897638654
     "react/jsx-curly-brace-presence": ["error", { props: "never", children: "never" }],
     "react/self-closing-comp": ["error", { component: true, html: true }],
@@ -27,9 +29,12 @@ module.exports = {
       parser: "@typescript-eslint/parser",
       overrides: [
         {
-          files: ["playwright/**/*.{tsx,ts}"],
+          files: ["**/playwright/**/*.{tsx,ts}"],
           rules: {
             "no-undef": "off",
+            "@typescript-eslint/no-var-requires": "off",
+            "@typescript-eslint/ban-types": "off",
+            "@typescript-eslint/no-empty-function": "off",
           },
         },
       ],

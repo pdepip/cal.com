@@ -1,7 +1,7 @@
 import { v4 } from "uuid";
 import { z } from "zod";
 
-import { generateUniqueAPIKey } from "@calcom/ee/lib/api/apiKeys";
+import { generateUniqueAPIKey } from "@calcom/features/ee/api-keys/lib/apiKeys";
 
 import { createProtectedRouter } from "../../createRouter";
 
@@ -113,6 +113,13 @@ export const apiKeysRouter = createProtectedRouter()
     }),
     async resolve({ ctx, input }) {
       const { id } = input;
+
+      const apiKeyToDelete = await ctx.prisma.apiKey.findFirst({
+        where: {
+          id,
+        },
+      });
+
       await ctx.prisma.user.update({
         where: {
           id: ctx.user.id,
@@ -125,6 +132,16 @@ export const apiKeysRouter = createProtectedRouter()
           },
         },
       });
+
+      //remove all existing zapier webhooks, as we always have only one zapier API key and the running zaps won't work any more if this key is deleted
+      if (apiKeyToDelete && apiKeyToDelete.appId === "zapier") {
+        await ctx.prisma.webhook.deleteMany({
+          where: {
+            appId: "zapier",
+          },
+        });
+      }
+
       return {
         id,
       };

@@ -2,13 +2,6 @@ import { MembershipRole, Prisma, UserPlan } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 
-import { getUserAvailability } from "@calcom/core/getUserAvailability";
-import { sendTeamInviteEmail } from "@calcom/emails";
-import { HOSTED_CAL_FEATURES, WEBAPP_URL } from "@calcom/lib/constants";
-import { getTranslation } from "@calcom/lib/server/i18n";
-import { getTeamWithMembers, isTeamAdmin, isTeamOwner } from "@calcom/lib/server/queries/teams";
-import slugify from "@calcom/lib/slugify";
-import { availabilityUserSelect } from "@calcom/prisma";
 import {
   addSeat,
   downgradeTeamMembers,
@@ -16,7 +9,14 @@ import {
   getTeamSeatStats,
   removeSeat,
   upgradeTeam,
-} from "@calcom/stripe/team-billing";
+} from "@calcom/app-store/stripepayment/lib/team-billing";
+import { getUserAvailability } from "@calcom/core/getUserAvailability";
+import { sendTeamInviteEmail } from "@calcom/emails";
+import { HOSTED_CAL_FEATURES, WEBAPP_URL } from "@calcom/lib/constants";
+import { getTranslation } from "@calcom/lib/server/i18n";
+import { getTeamWithMembers, isTeamAdmin, isTeamOwner } from "@calcom/lib/server/queries/teams";
+import slugify from "@calcom/lib/slugify";
+import { availabilityUserSelect } from "@calcom/prisma";
 
 import { TRPCError } from "@trpc/server";
 
@@ -265,9 +265,7 @@ export const viewerTeamsRouter = createProtectedRouter()
             from: ctx.user.name,
             to: input.usernameOrEmail,
             teamName: team.name,
-            joinLink: `${WEBAPP_URL}/auth/signup?token=${token}&callbackUrl=${
-              WEBAPP_URL + "/settings/teams"
-            }`,
+            joinLink: `${WEBAPP_URL}/auth/signup?token=${token}&callbackUrl=/settings/teams`,
           });
         }
       } else {
@@ -414,7 +412,6 @@ export const viewerTeamsRouter = createProtectedRouter()
         include: {
           user: {
             select: {
-              username: true,
               ...availabilityUserSelect,
             },
           },
@@ -429,7 +426,6 @@ export const viewerTeamsRouter = createProtectedRouter()
       return await getUserAvailability(
         {
           username: member.user.username,
-          timezone: input.timezone,
           dateFrom: input.dateFrom,
           dateTo: input.dateTo,
         },

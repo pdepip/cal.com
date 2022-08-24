@@ -45,7 +45,7 @@ const AdditionalCalendarSelector = ({ isLoading }: AdditionalCalendarSelectorPro
         const options = data.items.map((item) => ({
           label: item.name,
           slug: item.slug,
-          image: item.imageSrc,
+          image: item.logo,
           type: item.type,
         }));
         return (
@@ -73,7 +73,7 @@ const AdditionalCalendarSelector = ({ isLoading }: AdditionalCalendarSelectorPro
               },
             }}
             isSearchable={false}
-            className="mt-1 mb-2 block w-full min-w-0 flex-1 rounded-none rounded-r-sm border-gray-300 font-medium text-gray-700 sm:text-sm"
+            className="mt-1 mb-2 block w-full min-w-0 flex-1 rounded-none rounded-r-sm border-gray-300 text-sm font-medium text-gray-700"
             isLoading={isLoading}
             components={{ Option: ImageOption }}
           />

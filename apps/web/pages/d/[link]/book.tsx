@@ -4,10 +4,10 @@ import { JSONObject } from "superjson/dist/types";
 import { getLocationLabels } from "@calcom/app-store/utils";
 import { parseRecurringEvent } from "@calcom/lib";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import prisma from "@calcom/prisma";
 import { bookEventTypeSelect } from "@calcom/prisma/selects";
 
 import { asStringOrNull, asStringOrThrow } from "@lib/asStringOrNull";
-import prisma from "@lib/prisma";
 import { inferSSRProps } from "@lib/types/inferSSRProps";
 
 import BookingPage from "@components/booking/pages/BookingPage";
@@ -22,6 +22,8 @@ export default function Book(props: HashLinkPageProps) {
 
   return <BookingPage {...props} locationLabels={locationLabels} />;
 }
+
+Book.isThemeSupported = true;
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const ssr = await ssrInit(context);
@@ -101,6 +103,19 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       ...e,
       periodStartDate: e.periodStartDate?.toString() ?? null,
       periodEndDate: e.periodEndDate?.toString() ?? null,
+      schedulingType: null,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        avatar: u.avatar,
+        image: u.avatar,
+        slug: u.username,
+        theme: u.theme,
+        email: u.email,
+        brandColor: u.brandColor,
+        darkBrandColor: u.darkBrandColor,
+      })),
     };
   })[0];
 
@@ -116,7 +131,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
   // Checking if number of recurring event ocurrances is valid against event type configuration
   const recurringEventCount =
-    (eventTypeObject?.recurringEvent?.count &&
+    (eventTypeObject.recurringEvent?.count &&
       recurringEventCountQuery &&
       (parseInt(recurringEventCountQuery) <= eventTypeObject.recurringEvent.count
         ? parseInt(recurringEventCountQuery)
