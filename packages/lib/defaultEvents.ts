@@ -1,6 +1,7 @@
 import type { EventTypeCustomInput } from "@prisma/client";
 import { PeriodType, Prisma, SchedulingType, UserPlan } from "@prisma/client";
 
+import { DailyLocationType } from "@calcom/app-store/locations";
 import { userSelect } from "@calcom/prisma/selects";
 
 type User = Prisma.UserGetPayload<typeof userSelect>;
@@ -59,7 +60,7 @@ const commons = {
   periodType: PeriodType.UNLIMITED,
   periodDays: null,
   slotInterval: null,
-  locations: [{ type: "integrations:daily" }],
+  locations: [{ type: DailyLocationType }],
   customInputs,
   disableGuests: true,
   minimumBookingNotice: 120,
@@ -74,10 +75,6 @@ const commons = {
   schedulingType: SchedulingType.COLLECTIVE,
   seatsPerTimeSlot: null,
   id: 0,
-  metadata: {
-    smartContractAddress: "",
-  },
-  isWeb3Active: false,
   hideCalendarNotes: false,
   recurringEvent: null,
   destinationCalendar: null,
@@ -87,6 +84,7 @@ const commons = {
   userId: 0,
   workflows: [],
   users: [user],
+  metadata: {},
 };
 
 const min15Event = {
@@ -95,6 +93,7 @@ const min15Event = {
   title: "15min",
   eventName: "Dynamic Collective 15min Event",
   description: "Dynamic Collective 15min Event",
+  descriptionAsSafeHTML: "Dynamic Collective 15min Event",
   position: 0,
   ...commons,
 };
@@ -104,6 +103,7 @@ const min30Event = {
   title: "30min",
   eventName: "Dynamic Collective 30min Event",
   description: "Dynamic Collective 30min Event",
+  descriptionAsSafeHTML: "Dynamic Collective 30min Event",
   position: 1,
   ...commons,
 };
@@ -113,6 +113,7 @@ const min60Event = {
   title: "60min",
   eventName: "Dynamic Collective 60min Event",
   description: "Dynamic Collective 60min Event",
+  descriptionAsSafeHTML: "Dynamic Collective 60min Event",
   position: 2,
   ...commons,
 };

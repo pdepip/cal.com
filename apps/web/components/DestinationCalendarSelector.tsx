@@ -70,7 +70,13 @@ const DestinationCalendarSelector = ({
           value: `${cal.integration}:${cal.externalId}`,
         })),
     })) ?? [];
-
+  const defaultCalendarSelectedString = destinationCalendar?.externalId
+    ? `(${
+        destinationCalendar.externalId.length > 15
+          ? destinationCalendar.externalId.substring(0, 15) + "..."
+          : destinationCalendar.externalId
+      })`
+    : "";
   return (
     <div className="relative" title={`${t("select_destination_calendar")}: ${selectedOption?.label || ""}`}>
       <Select
@@ -79,8 +85,8 @@ const DestinationCalendarSelector = ({
           !hidePlaceholder ? (
             `${t("select_destination_calendar")}`
           ) : (
-            <span>
-              {t("default_calendar_selected")} ({destinationCalendar?.externalId})
+            <span className="whitespace-nowrap">
+              {t("default_calendar_selected")} {defaultCalendarSelectedString}
             </span>
           )
         }
@@ -101,10 +107,10 @@ const DestinationCalendarSelector = ({
           control: (defaultStyles) => {
             return {
               ...defaultStyles,
-              borderRadius: "2px",
+              borderRadius: "6px",
               "@media only screen and (min-width: 640px)": {
                 ...(defaultStyles["@media only screen and (min-width: 640px)"] as object),
-                maxWidth: "320px",
+                width: "100%",
               },
             };
           },
@@ -130,6 +136,9 @@ const DestinationCalendarSelector = ({
         }}
         isLoading={isLoading}
         value={selectedOption}
+        components={{
+          IndicatorSeparator: () => null,
+        }}
       />
     </div>
   );
