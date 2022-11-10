@@ -54,7 +54,7 @@ function TeamPage({ team }: TeamPageProps) {
             "dark:bg-darkgray-100 dark:border-darkgray-200 group relative rounded-sm border border-neutral-200 bg-white hover:bg-gray-50 dark:hover:border-neutral-600",
             !isEmbed && "bg-white"
           )}>
-          <Link href={`${team.slug}/${type.slug}?${queryParams}`}>
+          <Link href={`/team/${team.slug}/${type.slug}?${queryParams}`}>
             <a className="flex justify-between px-6 py-4" data-testid="event-type-link">
               <div className="flex-shrink">
                 <div className="flex flex-wrap items-center space-x-2">
