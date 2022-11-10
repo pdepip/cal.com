@@ -19,6 +19,7 @@ declare global {
     resetEmbedStatus: () => void;
     getEmbedNamespace: () => string | null;
     getEmbedTheme: () => "dark" | "light" | null;
+    isPageOptimizedForEmbed: (calLink: string) => boolean;
   }
 }
 
@@ -217,11 +218,8 @@ function getEmbedType() {
   }
 }
 
-export const useIsEmbed = () => {
-  // We can't simply return isEmbed() from this method.
-  // isEmbed() returns different values on server and browser, which messes up the hydration.
-  // TODO: We can avoid using document.URL and instead use Router.
-  const [isEmbed, setIsEmbed] = useState<boolean | null>(null);
+export const useIsEmbed = (embedSsr?: boolean) => {
+  const [isEmbed, setIsEmbed] = useState(embedSsr);
   useEffect(() => {
     const namespace = getNamespace();
     const _isValidNamespace = isValidNamespace(namespace);
@@ -244,7 +242,7 @@ export const useEmbedType = () => {
 };
 
 function unhideBody() {
-  document.body.style.display = "block";
+  document.body.style.visibility = "visible";
 }
 
 // If you add a method here, give type safety to parent manually by adding it to embed.ts. Look for "parentKnowsIframeReady" in it
@@ -252,10 +250,6 @@ export const methods = {
   ui: function style(uiConfig: UiConfig) {
     // TODO: Create automatic logger for all methods. Useful for debugging.
     log("Method: ui called", uiConfig);
-    if (window.CalComPlan && window.CalComPlan !== "PRO") {
-      log(`Upgrade to PRO for "ui" instruction to work`, window.CalComPlan);
-      return;
-    }
     const stylesConfig = uiConfig.styles;
 
     // In case where parent gives instructions before CalComPlan is set.
@@ -287,7 +281,7 @@ export const methods = {
         return;
       }
       // No UI change should happen in sight. Let the parent height adjust and in next cycle show it.
-      requestAnimationFrame(unhideBody);
+      unhideBody();
       sdkActionManager?.fire("linkReady", {});
     });
   },
@@ -370,6 +364,7 @@ function keepParentInformedAboutDimensionChanges() {
 }
 
 if (isBrowser) {
+  log("Embed SDK loaded", { isEmbed: window.isEmbed() });
   const url = new URL(document.URL);
   embedStore.theme = (window.getEmbedTheme() || "auto") as UiConfig["theme"];
   if (url.searchParams.get("prerender") !== "true" && window.isEmbed()) {

@@ -4,7 +4,8 @@ import { Controller, useForm } from "react-hook-form";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Button, Form, showToast, Switch } from "@calcom/ui/v2/core";
+import { Button, Form } from "@calcom/ui/components";
+import { showToast, Switch } from "@calcom/ui/v2/core";
 import Meta from "@calcom/ui/v2/core/Meta";
 import { getLayout } from "@calcom/ui/v2/core/layouts/SettingsLayout";
 
@@ -45,7 +46,7 @@ const ProfileView = () => {
 
   return (
     <>
-      <Meta title="booking_appearance" description="appearance_team_description" />
+      <Meta title="Booking Appearance" description="Manage settings for your team's booking appearance" />
       {!isLoading && (
         <>
           {isAdmin ? (

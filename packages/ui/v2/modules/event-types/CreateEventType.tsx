@@ -15,8 +15,9 @@ import { createEventTypeInput } from "@calcom/prisma/zod/custom/eventtype";
 import { trpc } from "@calcom/trpc/react";
 import { Alert } from "@calcom/ui/Alert";
 import { Icon } from "@calcom/ui/Icon";
-import Avatar from "@calcom/ui/v2/core/Avatar";
-import Button from "@calcom/ui/v2/core/Button";
+import { Avatar } from "@calcom/ui/components/avatar";
+import { Button } from "@calcom/ui/components/button";
+import { Form, TextAreaField, TextField } from "@calcom/ui/components/form";
 import { Dialog, DialogClose, DialogContent } from "@calcom/ui/v2/core/Dialog";
 import Dropdown, {
   DropdownMenuContent,
@@ -25,7 +26,6 @@ import Dropdown, {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@calcom/ui/v2/core/Dropdown";
-import { Form, TextAreaField, TextField } from "@calcom/ui/v2/core/form/fields";
 import * as RadioArea from "@calcom/ui/v2/core/form/radio-area/RadioAreaGroup";
 import showToast from "@calcom/ui/v2/core/notifications";
 
@@ -83,16 +83,6 @@ export default function CreateEventTypeButton(props: CreateEventTypeBtnProps) {
     setValue("slug", slug);
     // If query params change, update the form
   }, [router.isReady, router.query, setValue]);
-
-  useEffect(() => {
-    const subscription = watch((value, { name, type }) => {
-      if (name === "title" && type === "change") {
-        if (value.title) setValue("slug", slugify(value.title));
-        else setValue("slug", "");
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [watch, setValue]);
 
   const createMutation = trpc.useMutation("viewer.eventTypes.create", {
     onSuccess: async ({ eventType }) => {
@@ -153,7 +143,11 @@ export default function CreateEventTypeButton(props: CreateEventTypeBtnProps) {
       ) : (
         <Dropdown>
           <DropdownMenuTrigger asChild>
-            <Button EndIcon={Icon.FiChevronDown}>{t("new")}</Button>
+            <Button
+              EndIcon={Icon.FiChevronDown}
+              className="radix-state-open:bg-brand-500 radix-state-open:ring-2 radix-state-open:ring-brand-500 ring-offset-2">
+              {t("new")}
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>
@@ -198,7 +192,17 @@ export default function CreateEventTypeButton(props: CreateEventTypeBtnProps) {
                 value={teamId}
               />
             )}
-            <TextField label={t("title")} placeholder={t("quick_chat")} {...register("title")} />
+            <TextField
+              label={t("title")}
+              placeholder={t("quick_chat")}
+              {...register("title")}
+              onChange={(e) => {
+                form.setValue("title", e?.target.value);
+                if (form.formState.touchedFields["slug"] === undefined) {
+                  form.setValue("slug", slugify(e?.target.value));
+                }
+              }}
+            />
 
             {process.env.NEXT_PUBLIC_WEBSITE_URL !== undefined &&
             process.env.NEXT_PUBLIC_WEBSITE_URL?.length >= 21 ? (
@@ -207,6 +211,9 @@ export default function CreateEventTypeButton(props: CreateEventTypeBtnProps) {
                 required
                 addOnLeading={<>/{pageSlug}/</>}
                 {...register("slug")}
+                onChange={(e) => {
+                  form.setValue("slug", slugify(e?.target.value), { shouldTouch: true });
+                }}
               />
             ) : (
               <TextField

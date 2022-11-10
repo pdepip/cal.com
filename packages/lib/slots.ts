@@ -42,7 +42,9 @@ const splitAvailableTime = (
 const getSlots = ({ inviteeDate, frequency, minimumBookingNotice, workingHours, eventLength }: GetSlots) => {
   // current date in invitee tz
   const startDate = dayjs().add(minimumBookingNotice, "minute");
-  const startOfDayUTC = dayjs.utc().startOf("day");
+  // This code is ran client side, startOf() does some conversions based on the
+  // local tz of the client. Sometimes this shifts the day incorrectly.
+  const startOfDayUTC = dayjs.utc().set("hour", 0).set("minute", 0).set("second", 0);
   const startOfInviteeDay = inviteeDate.startOf("day");
   // checks if the start date is in the past
 
@@ -61,9 +63,20 @@ const getSlots = ({ inviteeDate, frequency, minimumBookingNotice, workingHours, 
     startTime: /* Why? */ startOfDayUTC.add(schedule.startTime, "minute"),
     endTime: /* Why? */ startOfDayUTC.add(schedule.endTime, "minute"),
   }));
-  const localWorkingHours = getWorkingHours({ utcOffset: -inviteeDate.utcOffset() }, workingHoursUTC).filter(
-    (hours) => hours.days.includes(inviteeDate.day())
-  );
+
+  // Dayjs does not expose the timeZone value publicly through .get("timeZone")
+  // instead, we as devs are required to somewhat hack our way to get the ...
+  // tz value as string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const timeZone: string = (inviteeDate as any)["$x"]["$timezone"];
+
+  const localWorkingHours = getWorkingHours(
+    {
+      // initialize current day with timeZone without conversion, just parse.
+      utcOffset: -dayjs.tz(dayjs(), timeZone).utcOffset(),
+    },
+    workingHoursUTC
+  ).filter((hours) => hours.days.includes(inviteeDate.day()));
 
   const slots: Dayjs[] = [];
 
@@ -98,7 +111,24 @@ const getSlots = ({ inviteeDate, frequency, minimumBookingNotice, workingHours, 
   });
 
   slotsTimeFrameAvailable.forEach((item) => {
-    const slot = startOfInviteeDay.add(item.startTime, "minute");
+    // XXX: Hack alert, as dayjs is supposedly not aware of timezone the current slot may have invalid UTC offset.
+    const timeZone = (startOfInviteeDay as unknown as { $x: { $timezone: string } })["$x"]["$timezone"];
+    /*
+     * @calcom/web:dev: 2022-11-06T00:00:00-04:00
+     * @calcom/web:dev: 2022-11-06T01:00:00-04:00
+     * @calcom/web:dev: 2022-11-06T01:00:00-04:00 <-- note there is no offset change, but we did lose an hour.
+     * @calcom/web:dev: 2022-11-06T02:00:00-04:00
+     * @calcom/web:dev: 2022-11-06T03:00:00-04:00
+     * ...
+     */
+    let slot = dayjs.tz(
+      startOfInviteeDay.add(item.startTime, "minute").format("YYYY-MM-DDTHH:mm:ss"),
+      timeZone
+    );
+    // If the startOfInviteeDay has a different UTC offset than the slot, a DST change has occurred.
+    // As the time has now fallen backwards, or forwards; this difference -
+    // needs to be manually added as this is not done for us. Usually 0.
+    slot = slot.add(startOfInviteeDay.utcOffset() - slot.utcOffset(), "minutes");
     // Validating slot its not on the past
     if (!slot.isBefore(startDate)) {
       slots.push(slot);

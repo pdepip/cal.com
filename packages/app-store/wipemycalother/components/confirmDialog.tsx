@@ -1,14 +1,14 @@
 import { ClockIcon } from "@heroicons/react/outline";
+import { useMutation } from "@tanstack/react-query";
 import { Dispatch, SetStateAction, useState } from "react";
-import { useMutation } from "react-query";
 
 import dayjs from "@calcom/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import logger from "@calcom/lib/logger";
-import showToast from "@calcom/lib/notification";
 import { trpc } from "@calcom/trpc/react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/Dialog";
-import Button from "@calcom/ui/v2/core/Button";
+import { Button } from "@calcom/ui/components/button";
+import showToast from "@calcom/ui/v2/core/notifications";
 
 interface IConfirmDialogWipe {
   isOpenDialog: boolean;

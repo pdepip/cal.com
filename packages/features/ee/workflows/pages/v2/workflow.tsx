@@ -18,9 +18,9 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { HttpError } from "@calcom/lib/http-error";
 import { stringOrNumber } from "@calcom/prisma/zod-utils";
 import { trpc } from "@calcom/trpc/react";
-import useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
+import { Button, Form } from "@calcom/ui/components";
 import { Option } from "@calcom/ui/form/MultiSelectCheckboxes";
-import { Alert, Button, Form, showToast } from "@calcom/ui/v2";
+import { showToast, Alert } from "@calcom/ui/v2";
 import Shell from "@calcom/ui/v2/core/Shell";
 
 import LicenseRequired from "../../../common/components/v2/LicenseRequired";
@@ -53,9 +53,10 @@ const formSchema = z.object({
       reminderBody: z.string().nullable(),
       emailSubject: z.string().nullable(),
       template: z.nativeEnum(WorkflowTemplates),
+      numberRequired: z.boolean().nullable(),
       sendTo: z
         .string()
-        .refine((val) => isValidPhoneNumber(val))
+        .refine((val) => isValidPhoneNumber(val) || val.includes("@"))
         .nullable(),
     })
     .array(),
@@ -69,8 +70,6 @@ function WorkflowPage() {
   const { t, i18n } = useLocale();
   const session = useSession();
   const router = useRouter();
-  const me = useMeQuery();
-  const isFreeUser = me.data?.plan === "FREE";
 
   const [selectedEventTypes, setSelectedEventTypes] = useState<Option[]>([]);
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
@@ -79,6 +78,7 @@ function WorkflowPage() {
     mode: "onBlur",
     resolver: zodResolver(formSchema),
   });
+
   const { workflow: workflowId } = router.isReady ? querySchema.parse(router.query) : { workflow: -1 };
   const utils = trpc.useContext();
 
@@ -86,13 +86,12 @@ function WorkflowPage() {
     data: workflow,
     isError,
     error,
-    dataUpdatedAt,
   } = trpc.useQuery(["viewer.workflows.get", { id: +workflowId }], {
     enabled: router.isReady && !!workflowId,
   });
 
   useEffect(() => {
-    if (workflow && !form.getValues("trigger")) {
+    if (workflow) {
       setSelectedEventTypes(
         workflow.activeOn.map((active) => ({
           value: String(active.eventType.id),
@@ -132,7 +131,7 @@ function WorkflowPage() {
       form.setValue("activeOn", activeOn || []);
       setIsAllDataLoaded(true);
     }
-  }, [dataUpdatedAt]);
+  }, [workflow]);
 
   const updateMutation = trpc.useMutation("viewer.workflows.update", {
     onSuccess: async ({ workflow }) => {
@@ -187,47 +186,39 @@ function WorkflowPage() {
         });
       }}>
       <Shell
+        backPath="/workflows"
         title={workflow && workflow.name ? workflow.name : "Untitled"}
         CTA={
-          !isFreeUser && (
-            <div>
-              <Button type="submit">{t("save")}</Button>
-            </div>
-          )
+          <div>
+            <Button type="submit">{t("save")}</Button>
+          </div>
         }
         heading={
           session.data?.hasValidLicense &&
-          isAllDataLoaded &&
-          !isFreeUser && (
+          isAllDataLoaded && (
             <div className={classNames(workflow && !workflow.name ? "text-gray-400" : "")}>
               {workflow && workflow.name ? workflow.name : "untitled"}
             </div>
           )
         }>
         <LicenseRequired>
-          {isFreeUser ? (
-            <Alert className="border " severity="warning" title={t("pro_feature_workflows")} />
-          ) : (
+          {!isError ? (
             <>
-              {!isError ? (
+              {isAllDataLoaded ? (
                 <>
-                  {isAllDataLoaded ? (
-                    <>
-                      <WorkflowDetailsPage
-                        form={form}
-                        workflowId={+workflowId}
-                        selectedEventTypes={selectedEventTypes}
-                        setSelectedEventTypes={setSelectedEventTypes}
-                      />
-                    </>
-                  ) : (
-                    <SkeletonLoader />
-                  )}
+                  <WorkflowDetailsPage
+                    form={form}
+                    workflowId={+workflowId}
+                    selectedEventTypes={selectedEventTypes}
+                    setSelectedEventTypes={setSelectedEventTypes}
+                  />
                 </>
               ) : (
-                <Alert severity="error" title="Something went wrong" message={error.message} />
+                <SkeletonLoader />
               )}
             </>
+          ) : (
+            <Alert severity="error" title="Something went wrong" message={error.message} />
           )}
         </LicenseRequired>
       </Shell>

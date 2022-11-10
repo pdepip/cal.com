@@ -1,29 +1,26 @@
-import { Credential, SelectedCalendar } from "@prisma/client";
+import { SelectedCalendar } from "@prisma/client";
 import { createHash } from "crypto";
 import _ from "lodash";
 import cache from "memory-cache";
 
 import { getCalendar } from "@calcom/app-store/_utils/getCalendar";
 import getApps from "@calcom/app-store/utils";
-import { sendBrokenIntegrationEmail } from "@calcom/emails";
 import { getUid } from "@calcom/lib/CalEventParser";
-import { getErrorFromUnknown } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import { performance } from "@calcom/lib/server/perfObserver";
 import type { CalendarEvent, EventBusyDate, NewCalendarEventType } from "@calcom/types/Calendar";
+import { CredentialPayload, CredentialWithAppName } from "@calcom/types/Credential";
 import type { EventResult } from "@calcom/types/EventManager";
 
 const log = logger.getChildLogger({ prefix: ["CalendarManager"] });
 
-export const getCalendarCredentials = (credentials: Array<Credential>, userId: number) => {
+export const getCalendarCredentials = (credentials: Array<CredentialPayload>) => {
   const calendarCredentials = getApps(credentials)
     .filter((app) => app.type.endsWith("_calendar"))
     .flatMap((app) => {
       const credentials = app.credentials.flatMap((credential) => {
         const calendar = getCalendar(credential);
-        return app && calendar && app.variant === "calendar"
-          ? [{ integration: app, credential, calendar }]
-          : [];
+        return app.variant === "calendar" ? [{ integration: app, credential, calendar }] : [];
       });
       return credentials.length ? credentials : [];
     });
@@ -37,10 +34,17 @@ export const getConnectedCalendars = async (
 ) => {
   const connectedCalendars = await Promise.all(
     calendarCredentials.map(async (item) => {
-      const { calendar, integration, credential } = item;
-
-      const credentialId = credential.id;
       try {
+        const { calendar, integration, credential } = item;
+
+        // Don't leak credentials to the client
+        const credentialId = credential.id;
+        if (!calendar) {
+          return {
+            integration,
+            credentialId,
+          };
+        }
         const cals = await calendar.listCalendars();
         const calendars = _(cals)
           .map((cal) => ({
@@ -52,23 +56,38 @@ export const getConnectedCalendars = async (
           }))
           .sortBy(["primary"])
           .value();
-        const primary = calendars.find((item) => item.primary) ?? calendars[0];
+        const primary = calendars.find((item) => item.primary) ?? calendars.find((cal) => cal !== undefined);
         if (!primary) {
-          throw new Error("No primary calendar found");
+          return {
+            integration,
+            credentialId,
+            error: {
+              message: "No primary calendar found",
+            },
+          };
         }
+
         return {
-          integration,
+          integration: cleanIntegrationKeys(integration),
           credentialId,
           primary,
           calendars,
         };
-      } catch (_error) {
-        const error = getErrorFromUnknown(_error);
+      } catch (error) {
+        let errorMessage = "Could not get connected calendars";
+
+        // Here you can expect for specific errors
+        if (error instanceof Error) {
+          if (error.message === "invalid_grant") {
+            errorMessage = "Access token expired or revoked";
+          }
+        }
+
         return {
-          integration,
-          credentialId,
+          integration: cleanIntegrationKeys(item.integration),
+          credentialId: item.credential.id,
           error: {
-            message: error.message,
+            message: errorMessage,
           },
         };
       }
@@ -78,10 +97,26 @@ export const getConnectedCalendars = async (
   return connectedCalendars;
 };
 
+/**
+ * Important function to prevent leaking credentials to the client
+ * @param appIntegration
+ * @returns App
+ */
+const cleanIntegrationKeys = (
+  appIntegration: ReturnType<typeof getCalendarCredentials>[number]["integration"] & {
+    credentials?: Array<CredentialPayload>;
+    credential: CredentialPayload;
+  }
+) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { credentials, credential, ...rest } = appIntegration;
+  return rest;
+};
+
 const CACHING_TIME = 30_000; // 30 seconds
 
 const getCachedResults = async (
-  withCredentials: Credential[],
+  withCredentials: CredentialPayload[],
   dateFrom: string,
   dateTo: string,
   selectedCalendars: SelectedCalendar[]
@@ -134,7 +169,7 @@ const getCachedResults = async (
 };
 
 export const getBusyCalendarTimes = async (
-  withCredentials: Credential[],
+  withCredentials: CredentialPayload[],
   dateFrom: string,
   dateTo: string,
   selectedCalendars: SelectedCalendar[]
@@ -149,7 +184,7 @@ export const getBusyCalendarTimes = async (
 };
 
 export const createEvent = async (
-  credential: Credential,
+  credential: CredentialWithAppName,
   calEvent: CalendarEvent
 ): Promise<EventResult<NewCalendarEventType>> => {
   const uid: string = getUid(calEvent);
@@ -182,6 +217,7 @@ export const createEvent = async (
     : undefined;
 
   return {
+    appName: credential.appName,
     type: credential.type,
     success,
     uid,
@@ -191,7 +227,7 @@ export const createEvent = async (
 };
 
 export const updateEvent = async (
-  credential: Credential,
+  credential: CredentialWithAppName,
   calEvent: CalendarEvent,
   bookingRefUid: string | null,
   externalCalendarId: string | null
@@ -220,6 +256,7 @@ export const updateEvent = async (
       : undefined;
 
   return {
+    appName: credential.appName,
     type: credential.type,
     success,
     uid,
@@ -228,7 +265,11 @@ export const updateEvent = async (
   };
 };
 
-export const deleteEvent = (credential: Credential, uid: string, event: CalendarEvent): Promise<unknown> => {
+export const deleteEvent = (
+  credential: CredentialPayload,
+  uid: string,
+  event: CalendarEvent
+): Promise<unknown> => {
   const calendar = getCalendar(credential);
   if (calendar) {
     return calendar.deleteEvent(uid, event);

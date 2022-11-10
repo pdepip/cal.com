@@ -73,6 +73,20 @@ ${calEvent.customInputs[key]}
   return customInputsString;
 };
 
+export const getAppsStatus = (calEvent: CalendarEvent) => {
+  if (!calEvent.appsStatus) {
+    return "";
+  }
+  return `\n${calEvent.attendees[0].language.translate("apps_status")}
+      \n${calEvent.appsStatus.map(
+        (app) =>
+          `\t${app.appName} ${app.success >= 1 && `✅ ${app.success > 1 ? `(x${app.success})` : ""}`} ${
+            app.failures >= 1 && `❌ ${app.failures > 1 ? `(x${app.failures})` : ""}`
+          }`
+      )}
+    `;
+};
+
 export const getDescription = (calEvent: CalendarEvent) => {
   if (!calEvent.description) {
     return "";
@@ -93,7 +107,10 @@ export const getLocation = (calEvent: CalendarEvent) => {
 export const getProviderName = (calEvent: CalendarEvent): string => {
   // TODO: use getAppName from @calcom/app-store
   if (calEvent.location && calEvent.location.includes("integrations:")) {
-    const location = calEvent.location.split(":")[1];
+    let location = calEvent.location.split(":")[1];
+    if (location === "daily") {
+      location = "Cal Video";
+    }
     return location[0].toUpperCase() + location.slice(1);
   }
   // If location its a url, probably we should be validating it with a custom library
@@ -118,6 +135,10 @@ export const getCancelLink = (calEvent: CalendarEvent): string => {
   return WEBAPP_URL + "/cancel/" + getUid(calEvent);
 };
 
+export const getRescheduleLink = (calEvent: CalendarEvent): string => {
+  return WEBAPP_URL + "/reschedule/" + getUid(calEvent);
+};
+
 export const getRichDescription = (calEvent: CalendarEvent /*, attendee?: Person*/) => {
   return `
 ${getCancellationReason(calEvent)}
@@ -129,6 +150,7 @@ ${getLocation(calEvent)}
 ${getDescription(calEvent)}
 ${getAdditionalNotes(calEvent)}
 ${getCustomInputs(calEvent)}
+${getAppsStatus(calEvent)}
 ${
   // TODO: Only the original attendee can make changes to the event
   // Guests cannot

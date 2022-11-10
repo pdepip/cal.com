@@ -1,6 +1,7 @@
 import { ErrorMessage } from "@hookform/error-message";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isValidPhoneNumber } from "libphonenumber-js";
+import { Trans } from "next-i18next";
 import { useEffect } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -16,14 +17,15 @@ import {
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { inferQueryOutput, trpc } from "@calcom/trpc/react";
 import { Icon } from "@calcom/ui/Icon";
+import { Button } from "@calcom/ui/components";
+import { Label, Form } from "@calcom/ui/components/form";
 import PhoneInput from "@calcom/ui/form/PhoneInputLazy";
 import { Dialog, DialogContent } from "@calcom/ui/v2";
-import { Button, Label } from "@calcom/ui/v2";
-import { Form } from "@calcom/ui/v2";
 import { Select } from "@calcom/ui/v2/";
 
 import { QueryCell } from "@lib/QueryCell";
 
+import { LinkText } from "@components/ui/LinkText";
 import CheckboxField from "@components/ui/form/CheckboxField";
 
 type BookingItem = inferQueryOutput<"viewer.bookings">["bookings"][number];
@@ -230,6 +232,12 @@ export const EditLocationDialog = (props: ISetLocationDialog) => {
             const { locationType: newLocation, displayLocationPublicly } = values;
 
             let details = {};
+            if (newLocation === LocationType.AttendeeInPerson) {
+              details = {
+                address: values.locationAddress,
+              };
+            }
+
             if (newLocation === LocationType.InPerson) {
               details = {
                 address: values.locationAddress,
@@ -308,6 +316,17 @@ export const EditLocationDialog = (props: ISetLocationDialog) => {
             }}
           />
           {selectedLocation && LocationOptions}
+          <div className="mt-5">
+            <p className="text-sm text-gray-400">
+              <Trans i18nKey="cant_find_the_right_video_app_visit_our_app_store">
+                Can&apos;t find the right video app? Visit our
+                <LinkText href="/apps/categories/video" classNameChildren="text-blue-400" target="_blank">
+                  App Store
+                </LinkText>
+                .
+              </Trans>
+            </p>
+          </div>
           <div className="mt-4 flex justify-end space-x-2">
             <Button
               onClick={() => {

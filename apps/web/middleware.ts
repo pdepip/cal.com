@@ -5,26 +5,6 @@ import { CONSOLE_URL, WEBAPP_URL, WEBSITE_URL } from "@calcom/lib/constants";
 import { isIpInBanlist } from "@calcom/lib/getIP";
 import { extendEventData, nextCollectBasicSettings } from "@calcom/lib/telemetry";
 
-const V2_WHITELIST = [
-  "/settings/admin",
-  "/settings/developer/webhooks",
-  "/settings/developer/api-keys",
-  "/settings/my-account",
-  "/settings/security",
-  "/settings/teams",
-  "/availability",
-  "/bookings",
-  "/event-types",
-  "/workflows",
-  "/apps",
-  "/success",
-];
-const V2_BLACKLIST = [
-  //
-  "/apps/routing_forms",
-  "/apps/installed",
-];
-
 const middleware: NextMiddleware = async (req) => {
   const url = req.nextUrl;
 
@@ -42,17 +22,25 @@ const middleware: NextMiddleware = async (req) => {
       return NextResponse.redirect(req.nextUrl);
     }
   }
-  /** Display available V2 pages to users who opted-in to early access */
-  if (
-    req.cookies.has("calcom-v2-early-access") &&
-    !V2_BLACKLIST.some((p) => url.pathname.startsWith(p)) &&
-    V2_WHITELIST.some((p) => url.pathname.startsWith(p))
-  ) {
-    // rewrite to the current subdomain under the pages/sites folder
-    url.pathname = `/v2${url.pathname}`;
+
+  // Ensure that embed query param is there in when /embed is added.
+  // query param is the way in which client side code knows that it is in embed mode.
+  if (url.pathname.endsWith("/embed") && typeof url.searchParams.get("embed") !== "string") {
+    url.searchParams.set("embed", "");
+    return NextResponse.redirect(url);
+  }
+
+  // Don't 404 old routing_forms links
+  if (url.pathname.startsWith("/apps/routing_forms")) {
+    url.pathname = url.pathname.replace("/apps/routing_forms", "/apps/routing-forms");
     return NextResponse.rewrite(url);
   }
+
   return NextResponse.next();
+};
+
+export const config = {
+  matcher: ["/api/collect-events/:path*", "/api/auth/:path*", "/apps/routing_forms/:path*", "/:path*/embed"],
 };
 
 export default collectEvents({

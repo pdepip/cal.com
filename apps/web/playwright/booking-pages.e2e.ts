@@ -3,6 +3,7 @@ import { expect } from "@playwright/test";
 import { test } from "./lib/fixtures";
 import {
   bookFirstEvent,
+  bookOptinEvent,
   bookTimeSlot,
   selectFirstAvailableTimeSlotNextMonth,
   selectSecondAvailableTimeSlotNextMonth,
@@ -17,12 +18,6 @@ test.describe("free user", () => {
   });
   test.afterEach(async ({ users }) => {
     await users.deleteAll();
-  });
-
-  test("only one visible event", async ({ page, users }) => {
-    const [free] = users.get();
-    await expect(page.locator(`[href="/${free.username}/${free.eventTypes[0].slug}"]`)).toBeVisible();
-    await expect(page.locator(`[href="/${free.username}/${free.eventTypes[1].slug}"]`)).not.toBeVisible();
   });
 
   test("cannot book same slot multiple times", async ({ page }) => {
@@ -55,16 +50,6 @@ test.describe("free user", () => {
 
     // check for error message
     await expect(page.locator("[data-testid=booking-fail]")).toBeVisible();
-  });
-
-  test("Second event type is not bookable", async ({ page, users }) => {
-    const [free] = users.get();
-    // Not available in listing
-    await expect(page.locator(`[href="/${free.username}/${free.eventTypes[1].slug}"]`)).toHaveCount(0);
-
-    await page.goto(`/${free.username}/${free.eventTypes[1].slug}`);
-    // Not available on a direct visit to event type page
-    await expect(page.locator('[data-testid="404-page"]')).toBeVisible();
   });
 });
 
@@ -134,5 +119,22 @@ test.describe("pro user", () => {
     });
     await page.goto(`/${pro.username}`);
     await bookFirstEvent(page);
+  });
+
+  test("can book an event that requires confirmation and then that booking can be accepted by organizer", async ({
+    page,
+    users,
+  }) => {
+    await bookOptinEvent(page);
+    const [pro] = users.get();
+    await pro.login();
+
+    await page.goto("/bookings/unconfirmed");
+    await Promise.all([
+      page.click('[data-testid="confirm"]'),
+      page.waitForResponse((response) => response.url().includes("/api/trpc/viewer.bookings.confirm")),
+    ]);
+    // This is the only booking in there that needed confirmation and now it should be empty screen
+    await expect(page.locator('[data-testid="empty-screen"]')).toBeVisible();
   });
 });

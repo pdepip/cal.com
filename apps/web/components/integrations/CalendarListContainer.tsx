@@ -1,9 +1,8 @@
+import { useMutation } from "@tanstack/react-query";
 import { Fragment } from "react";
-import { useMutation } from "react-query";
 
 import { InstallAppButton } from "@calcom/app-store/components";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import showToast from "@calcom/lib/notification";
 import { inferQueryOutput, trpc } from "@calcom/trpc/react";
 import { Alert } from "@calcom/ui/Alert";
 import Button from "@calcom/ui/Button";
@@ -11,6 +10,7 @@ import { List } from "@calcom/ui/List";
 import { ShellSubHeading } from "@calcom/ui/Shell";
 import Switch from "@calcom/ui/Switch";
 import SkeletonLoader from "@calcom/ui/apps/SkeletonLoader";
+import showToast from "@calcom/ui/v2/core/notifications";
 
 import { QueryCell } from "@lib/QueryCell";
 
@@ -185,8 +185,8 @@ function ConnectedCalendarsList(props: Props) {
                 ) : (
                   <Alert
                     severity="warning"
-                    title={t("calendar_error")}
-                    message={item.error?.message}
+                    title={t("something_went_wrong")}
+                    message={t("calendar_error")}
                     actions={
                       <DisconnectIntegration
                         id={item.credentialId}

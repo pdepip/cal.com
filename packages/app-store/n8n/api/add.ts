@@ -6,10 +6,11 @@ import appConfig from "../config.json";
 const handler: AppDeclarativeHandler = {
   // Instead of passing appType and slug from here, api/integrations/[..args] should be able to derive and pass these directly to createCredential
   appType: appConfig.type,
+  variant: appConfig.variant,
   slug: appConfig.slug,
   supportsMultipleInstalls: false,
   handlerType: "add",
-  redirectUrl: "https://n8n.io/integrations/817-cal-trigger/",
+  redirectUrl: "https://n8n.io/integrations/cal-trigger/",
   createCredential: ({ appType, user, slug }) =>
     createDefaultInstallation({ appType, userId: user.id, slug, key: {} }),
 };

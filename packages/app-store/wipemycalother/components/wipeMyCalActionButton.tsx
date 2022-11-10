@@ -1,13 +1,13 @@
 import { useState } from "react";
 
 import { trpc } from "@calcom/trpc/react";
-import Button from "@calcom/ui/v2/core/Button";
+import { Button } from "@calcom/ui/components/button";
 
 import { ConfirmDialog } from "./confirmDialog";
 
 interface IWipeMyCalActionButtonProps {
   bookingsEmpty: boolean;
-  bookingStatus: "upcoming" | "recurring" | "past" | "cancelled";
+  bookingStatus: "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
 }
 
 const WipeMyCalActionButton = (props: IWipeMyCalActionButtonProps) => {

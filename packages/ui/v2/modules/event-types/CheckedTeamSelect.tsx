@@ -1,12 +1,12 @@
-import autoAnimate from "@formkit/auto-animate";
-import React, { useEffect, useRef } from "react";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Props } from "react-select";
 
 import { classNames } from "@calcom/lib";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Icon } from "@calcom/ui/Icon";
 
-import { Avatar, Select } from "../..";
+import { Avatar } from "../../../components";
+import { Select } from "../../core/form";
 
 type CheckedSelectOption = {
   avatar: string;
@@ -24,11 +24,8 @@ export const CheckedTeamSelect = ({
   onChange: (value: readonly CheckedSelectOption[]) => void;
 }) => {
   const { t } = useLocale();
-  const animationRef = useRef(null);
 
-  useEffect(() => {
-    animationRef.current && autoAnimate(animationRef.current);
-  }, [animationRef]);
+  const [animationRef] = useAutoAnimate<HTMLUListElement>();
 
   return (
     <>
@@ -50,8 +47,8 @@ export const CheckedTeamSelect = ({
       {/* This class name conditional looks a bit odd but it allows a seemless transition when using autoanimate
        - Slides down from the top instead of just teleporting in from nowhere*/}
       <ul className={classNames("mt-3 rounded-md", value.length >= 1 && "border")} ref={animationRef}>
-        {value.map((option) => (
-          <li key={option.value} className="flex border-b py-2 px-3">
+        {value.map((option, index) => (
+          <li key={option.value} className={`flex py-2 px-3 ${index === value.length - 1 ? "" : "border-b"}`}>
             <Avatar size="sm" imageSrc={option.avatar} alt={option.label} />
             <p className="my-auto ml-3 text-sm text-gray-900">{option.label}</p>
             <Icon.FiX

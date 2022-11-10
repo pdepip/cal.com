@@ -7,18 +7,16 @@ import { Availability } from "@calcom/prisma/client";
 import { inferQueryOutput } from "@calcom/trpc/react";
 import Dropdown, { DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@calcom/ui/Dropdown";
 import { Icon } from "@calcom/ui/Icon";
-import Badge from "@calcom/ui/v2/core/Badge";
-import Button from "@calcom/ui/v2/core/Button";
+import { Badge } from "@calcom/ui/components/badge";
+import { Button } from "@calcom/ui/components/button";
 
 export function ScheduleListItem({
   schedule,
   deleteFunction,
-  isDeleting = false,
   displayOptions,
 }: {
   schedule: inferQueryOutput<"viewer.availability.list">["schedules"][number];
   deleteFunction: ({ scheduleId }: { scheduleId: number }) => void;
-  isDeleting: boolean;
   displayOptions?: {
     timeZone?: string;
     hour12?: boolean;
@@ -67,7 +65,6 @@ export function ScheduleListItem({
           <DropdownMenuContent>
             <DropdownMenuItem>
               <Button
-                disabled={isDeleting}
                 onClick={() => {
                   deleteFunction({
                     scheduleId: schedule.id,
@@ -76,9 +73,8 @@ export function ScheduleListItem({
                 type="button"
                 color="destructive"
                 className="w-full font-normal"
-                StartIcon={isDeleting ? undefined : Icon.FiTrash}
-                loading={isDeleting}>
-                {isDeleting ? t("deleting") : t("delete_schedule")}
+                StartIcon={Icon.FiTrash}>
+                {t("delete_schedule")}
               </Button>
             </DropdownMenuItem>
           </DropdownMenuContent>

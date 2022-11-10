@@ -5,7 +5,7 @@ import logger from "@calcom/lib/logger";
 import { Ensure, Optional } from "@calcom/types/utils";
 
 import type { EventLocationTypeFromAppMeta } from "../types/App";
-import { appStoreMetadata } from "./apps.browser.generated";
+import { appStoreMetadata } from "./apps.metadata.generated";
 
 export type DefaultEventLocationType = {
   default: true;
@@ -16,8 +16,8 @@ export type DefaultEventLocationType = {
   iconUrl: string;
 
   // HACK: `variable` and `defaultValueVariable` are required due to legacy reason where different locations were stored in different places.
-  variable: "locationType" | "locationAddress" | "locationLink" | "locationPhoneNumber" | "phone";
-  defaultValueVariable: "address" | "link" | "hostPhoneNumber" | "phone";
+  variable: "locationType" | "locationAddress" | "address" | "locationLink" | "locationPhoneNumber" | "phone";
+  defaultValueVariable: "address" | "attendeeAddress" | "link" | "hostPhoneNumber" | "phone";
 } & (
   | {
       organizerInputType: "phone" | "text" | null;
@@ -26,7 +26,7 @@ export type DefaultEventLocationType = {
       attendeeInputPlaceholder?: null;
     }
   | {
-      attendeeInputType: "phone" | "text" | null;
+      attendeeInputType: "phone" | "attendeeAddress" | null;
       attendeeInputPlaceholder: string;
       organizerInputType?: null;
       organizerInputPlaceholder?: null;
@@ -40,6 +40,13 @@ export type EventLocationType = DefaultEventLocationType | EventLocationTypeFrom
 export const DailyLocationType = "integrations:daily";
 
 export enum DefaultEventLocationTypeEnum {
+  /**
+   * Booker Address
+   */
+  AttendeeInPerson = "attendeeInPerson",
+  /**
+   * Organizer Address
+   */
   InPerson = "inPerson",
   /**
    * Booker Phone
@@ -55,8 +62,20 @@ export enum DefaultEventLocationTypeEnum {
 export const defaultLocations: DefaultEventLocationType[] = [
   {
     default: true,
+    type: DefaultEventLocationTypeEnum.AttendeeInPerson,
+    label: "In Person (Attendee Address)",
+    variable: "address",
+    organizerInputType: null,
+    messageForOrganizer: "Cal will ask your invitee to enter an address before scheduling.",
+    attendeeInputType: "attendeeAddress",
+    attendeeInputPlaceholder: `Enter Address`,
+    defaultValueVariable: "attendeeAddress",
+    iconUrl: "/map-pin.svg",
+  },
+  {
+    default: true,
     type: DefaultEventLocationTypeEnum.InPerson,
-    label: "In Person",
+    label: "In Person (Organizer Address)",
     organizerInputType: "text",
     messageForOrganizer: "Provide an Address or Place",
     // HACK:
@@ -103,7 +122,7 @@ export const defaultLocations: DefaultEventLocationType[] = [
 export type LocationObject = {
   type: string;
   displayLocationPublicly?: boolean;
-} & Partial<Record<"address" | "link" | "hostPhoneNumber" | "phone", string>>;
+} & Partial<Record<"address" | "attendeeAddress" | "link" | "hostPhoneNumber" | "phone", string>>;
 
 // integrations:jitsi | 919999999999 | Delhi | https://manual.meeting.link | Around Video
 export type BookingLocationValue = string;
@@ -310,13 +329,17 @@ export const getEventLocationValue = (eventLocations: LocationObject[], bookingL
   );
 };
 
-export function getSuccessPageLocationMessage(location: EventLocationType["type"], t: TFunction) {
+export function getSuccessPageLocationMessage(
+  location: EventLocationType["type"],
+  t: TFunction,
+  bookingStatus?: BookingStatus
+) {
   const eventLocationType = getEventLocationType(location);
   let locationToDisplay = location;
   if (eventLocationType && !eventLocationType.default && eventLocationType.linkType === "dynamic") {
-    const isConfirmed = status === BookingStatus.ACCEPTED;
+    const isConfirmed = bookingStatus === BookingStatus.ACCEPTED;
 
-    if (status === BookingStatus.CANCELLED || status === BookingStatus.REJECTED) {
+    if (bookingStatus === BookingStatus.CANCELLED || bookingStatus === BookingStatus.REJECTED) {
       locationToDisplay == t("web_conference");
     } else if (isConfirmed) {
       locationToDisplay =

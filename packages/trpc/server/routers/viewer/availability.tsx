@@ -2,7 +2,7 @@ import { Availability as AvailabilityModel, Prisma, Schedule as ScheduleModel, U
 import { z } from "zod";
 
 import { getUserAvailability } from "@calcom/core/getUserAvailability";
-import { getAvailabilityFromSchedule } from "@calcom/lib/availability";
+import { DEFAULT_SCHEDULE, getAvailabilityFromSchedule } from "@calcom/lib/availability";
 import { PrismaClient } from "@calcom/prisma/client";
 import { stringOrNumber } from "@calcom/prisma/zod-utils";
 import { Schedule } from "@calcom/types/schedule";
@@ -15,6 +15,7 @@ export const availabilityRouter = createProtectedRouter()
   .query("list", {
     async resolve({ ctx }) {
       const { prisma, user } = ctx;
+
       const schedules = await prisma.schedule.findMany({
         where: {
           userId: user.id,
@@ -29,23 +30,26 @@ export const availabilityRouter = createProtectedRouter()
           id: "asc",
         },
       });
+
+      const defaultScheduleId = await getDefaultScheduleId(user.id, prisma);
+
       return {
         schedules: schedules.map((schedule) => ({
           ...schedule,
-          isDefault: user.defaultScheduleId === schedule.id || schedules.length === 1,
+          isDefault: schedule.id === defaultScheduleId,
         })),
       };
     },
   })
   .query("schedule", {
     input: z.object({
-      scheduleId: z.number(),
+      scheduleId: z.optional(z.number()),
     }),
     async resolve({ ctx, input }) {
       const { prisma, user } = ctx;
       const schedule = await prisma.schedule.findUnique({
         where: {
-          id: input.scheduleId,
+          id: input.scheduleId || (await getDefaultScheduleId(user.id, prisma)),
         },
         select: {
           id: true,
@@ -72,7 +76,7 @@ export const availabilityRouter = createProtectedRouter()
         schedule,
         availability,
         timeZone: schedule.timeZone || user.timeZone,
-        isDefault: !user.defaultScheduleId || user.defaultScheduleId === schedule.id,
+        isDefault: !input.scheduleId || user.defaultScheduleId === schedule.id,
       };
     },
   })
@@ -102,6 +106,7 @@ export const availabilityRouter = createProtectedRouter()
           )
         )
         .optional(),
+      eventTypeId: z.number().optional(),
     }),
     async resolve({ input, ctx }) {
       const { user, prisma } = ctx;
@@ -112,26 +117,26 @@ export const availabilityRouter = createProtectedRouter()
             id: user.id,
           },
         },
+        // If an eventTypeId is provided then connect the new schedule to that event type
+        ...(input.eventTypeId && { eventType: { connect: { id: input.eventTypeId } } }),
       };
 
-      if (input.schedule) {
-        const availability = getAvailabilityFromSchedule(input.schedule);
-        data.availability = {
-          createMany: {
-            data: availability.map((schedule) => ({
-              days: schedule.days,
-              startTime: schedule.startTime,
-              endTime: schedule.endTime,
-            })),
-          },
-        };
-      }
+      const availability = getAvailabilityFromSchedule(input.schedule || DEFAULT_SCHEDULE);
+      data.availability = {
+        createMany: {
+          data: availability.map((schedule) => ({
+            days: schedule.days,
+            startTime: schedule.startTime,
+            endTime: schedule.endTime,
+          })),
+        },
+      };
+
       const schedule = await prisma.schedule.create({
         data,
       });
       const hasDefaultScheduleId = await hasDefaultSchedule(user, prisma);
-
-      if (hasDefaultScheduleId) {
+      if (!hasDefaultScheduleId) {
         await setupDefaultSchedule(user.id, schedule.id, prisma);
       }
 
@@ -157,13 +162,25 @@ export const availabilityRouter = createProtectedRouter()
       if (scheduleToDelete?.userId !== user.id) throw new TRPCError({ code: "UNAUTHORIZED" });
 
       if (user.defaultScheduleId === input.scheduleId) {
-        // unset default
+        // set a new default or unset default if no other schedule
+        const scheduleToSetAsDefault = await prisma.schedule.findFirst({
+          where: {
+            userId: user.id,
+            NOT: {
+              id: input.scheduleId,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
         await prisma.user.update({
           where: {
             id: user.id,
           },
           data: {
-            defaultScheduleId: undefined,
+            defaultScheduleId: scheduleToSetAsDefault?.id,
           },
         });
       }
@@ -193,8 +210,10 @@ export const availabilityRouter = createProtectedRouter()
       const { user, prisma } = ctx;
       const availability = getAvailabilityFromSchedule(input.schedule);
 
+      let updatedUser;
       if (input.isDefault) {
-        setupDefaultSchedule(user.id, input.scheduleId, prisma);
+        const setupDefault = await setupDefaultSchedule(user.id, input.scheduleId, prisma);
+        updatedUser = setupDefault;
       }
 
       // Not able to update the schedule with userId where clause, so fetch schedule separately and then validate
@@ -238,10 +257,33 @@ export const availabilityRouter = createProtectedRouter()
             },
           },
         },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          availability: true,
+          timeZone: true,
+          eventType: {
+            select: {
+              _count: true,
+              id: true,
+              eventName: true,
+            },
+          },
+        },
       });
+
+      const userAvailability = convertScheduleToAvailability(schedule);
 
       return {
         schedule,
+        availability: userAvailability,
+        timeZone: schedule.timeZone || user.timeZone,
+        isDefault: updatedUser
+          ? updatedUser.defaultScheduleId === schedule.id
+          : user.defaultScheduleId === schedule.id,
+        prevDefaultId: user.defaultScheduleId,
+        currentDefaultId: updatedUser ? updatedUser.defaultScheduleId : user.defaultScheduleId,
       };
     },
   });
@@ -280,7 +322,7 @@ export const convertScheduleToAvailability = (
 };
 
 const setupDefaultSchedule = async (userId: number, scheduleId: number, prisma: PrismaClient) => {
-  await prisma.user.update({
+  return prisma.user.update({
     where: {
       id: userId,
     },
@@ -292,6 +334,32 @@ const setupDefaultSchedule = async (userId: number, scheduleId: number, prisma: 
 
 const isDefaultSchedule = (scheduleId: number, user: Partial<User>) => {
   return !user.defaultScheduleId || user.defaultScheduleId === scheduleId;
+};
+
+const getDefaultScheduleId = async (userId: number, prisma: PrismaClient) => {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      defaultScheduleId: true,
+    },
+  });
+
+  if (user?.defaultScheduleId) {
+    return user.defaultScheduleId;
+  }
+
+  const defaultSchedule = await prisma.schedule.findFirst({
+    where: {
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return defaultSchedule?.id; // TODO: Handle no schedules AT ALL
 };
 
 const hasDefaultSchedule = async (user: Partial<User>, prisma: PrismaClient) => {

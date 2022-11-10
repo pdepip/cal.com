@@ -57,7 +57,7 @@ export const getEmbedIframe = async ({ page, pathname }: { page: Page; pathname:
     return null;
   }
   const u = new URL(embedIframe.url());
-  if (u.pathname === pathname) {
+  if (u.pathname === pathname + "/embed") {
     return embedIframe;
   }
   return null;

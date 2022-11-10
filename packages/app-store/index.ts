@@ -5,6 +5,7 @@ import * as closecomothercalendar from "./closecomothercalendar";
 import * as dailyvideo from "./dailyvideo";
 import * as exchange2013calendar from "./exchange2013calendar";
 import * as exchange2016calendar from "./exchange2016calendar";
+import * as exchangecalendar from "./exchangecalendar";
 import * as giphy from "./giphy";
 import * as googlecalendar from "./googlecalendar";
 import * as googlevideo from "./googlevideo";
@@ -14,6 +15,7 @@ import * as jitsivideo from "./jitsivideo";
 import * as larkcalendar from "./larkcalendar";
 import * as office365calendar from "./office365calendar";
 import * as office365video from "./office365video";
+import * as sendgridothercalendar from "./sendgridothercalendar";
 import * as slackmessaging from "./slackmessaging";
 import * as stripepayment from "./stripepayment";
 import * as tandemvideo from "./tandemvideo";
@@ -36,6 +38,7 @@ const appStore = {
   larkcalendar,
   office365calendar,
   office365video,
+  sendgridothercalendar,
   slackmessaging,
   stripepayment,
   tandemvideo,
@@ -46,6 +49,7 @@ const appStore = {
   zapier,
   exchange2013calendar,
   exchange2016calendar,
+  exchangecalendar,
 };
 
 export default appStore;

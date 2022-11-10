@@ -4,7 +4,7 @@ import Cropper from "react-easy-crop";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@calcom/ui/Dialog";
-import Button from "@calcom/ui/v2/core/Button";
+import { Button } from "@calcom/ui/components/button";
 
 type ReadAsMethod = "readAsText" | "readAsDataURL" | "readAsArrayBuffer" | "readAsBinaryString";
 
@@ -200,7 +200,7 @@ export default function ImageUploader({
             </label>
           </div>
         </div>
-        <div className="mt-5 gap-x-2 sm:mt-4 sm:flex sm:flex-row-reverse">
+        <div className="mt-5 flex flex-row-reverse gap-x-2 sm:mt-4">
           <DialogClose asChild>
             <Button onClick={() => showCroppedImage(croppedAreaPixels)}>{t("save")}</Button>
           </DialogClose>

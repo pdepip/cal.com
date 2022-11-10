@@ -1,7 +1,6 @@
+import dynamic from "next/dynamic";
 import { Dispatch, useState, useEffect } from "react";
 import { JSONObject } from "superjson/dist/types";
-
-import RainbowGate from "@calcom/app-store/rainbow/components/RainbowKit";
 
 export type Gate = undefined | "rainbow"; // Add more like ` | "geolocation" | "payment"`
 
@@ -12,12 +11,14 @@ export type GateState = {
 type GateProps = {
   children: React.ReactNode;
   gates: Gate[];
-  metadata: JSONObject;
+  appData: JSONObject;
   dispatch: Dispatch<Partial<GateState>>;
 };
 
+const RainbowGate = dynamic(() => import("@calcom/app-store/rainbow/components/RainbowKit"));
+
 // To add a new Gate just add the gate logic to the switch statement
-const Gates: React.FC<GateProps> = ({ children, gates, metadata, dispatch }) => {
+const Gates: React.FC<GateProps> = ({ children, gates, appData, dispatch }) => {
   const [rainbowToken, setRainbowToken] = useState<string>();
 
   useEffect(() => {
@@ -30,12 +31,12 @@ const Gates: React.FC<GateProps> = ({ children, gates, metadata, dispatch }) => 
   for (const gate of gates) {
     switch (gate) {
       case "rainbow":
-        if (metadata.blockchainId && metadata.smartContractAddress && !rainbowToken) {
+        if (appData.blockchainId && appData.smartContractAddress && !rainbowToken) {
           gateWrappers = (
             <RainbowGate
               setToken={setRainbowToken}
-              chainId={metadata.blockchainId as number}
-              tokenAddress={metadata.smartContractAddress as string}>
+              chainId={appData.blockchainId as number}
+              tokenAddress={appData.smartContractAddress as string}>
               {gateWrappers}
             </RainbowGate>
           );

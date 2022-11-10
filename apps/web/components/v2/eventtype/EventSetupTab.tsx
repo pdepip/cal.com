@@ -1,8 +1,8 @@
-import autoAnimate from "@formkit/auto-animate";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isValidPhoneNumber } from "libphonenumber-js";
-import { EventTypeSetupInfered, FormValues } from "pages/v2/event-types/[type]";
-import { useEffect, useRef, useState } from "react";
+import { EventTypeSetupInfered, FormValues } from "pages/event-types/[type]";
+import { useState } from "react";
 import { Controller, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 
@@ -10,7 +10,9 @@ import { getEventLocationType, EventLocationType } from "@calcom/app-store/locat
 import { CAL_URL } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Icon } from "@calcom/ui/Icon";
-import { Select, Label, TextField, Button } from "@calcom/ui/v2";
+import { Button } from "@calcom/ui/components";
+import { Label, TextField } from "@calcom/ui/components/form";
+import { Select, Skeleton } from "@calcom/ui/v2";
 
 import { slugify } from "@lib/slugify";
 
@@ -85,11 +87,8 @@ export const EventSetupTab = (
 
   const Locations = () => {
     const { t } = useLocale();
-    const animationRef = useRef(null);
 
-    useEffect(() => {
-      animationRef.current && autoAnimate(animationRef.current);
-    }, [animationRef]);
+    const [animationRef] = useAutoAnimate<HTMLUListElement>();
 
     const validLocations = formMethods.getValues("locations").filter((location) => {
       const eventLocation = getEventLocationType(location.type);
@@ -135,14 +134,14 @@ export const EventSetupTab = (
               }
               return (
                 <li key={location.type} className="mb-2 rounded-md border border-neutral-300 py-1.5 px-2">
-                  <div className="flex justify-between">
+                  <div className="flex max-w-full justify-between">
                     <div key={index} className="flex flex-grow items-center">
                       <img
                         src={eventLocationType.iconUrl}
                         className="h-6 w-6"
                         alt={`${eventLocationType.label} logo`}
                       />
-                      <span className="text-sm ltr:ml-2 rtl:mr-2">
+                      <span className="truncate text-sm ltr:ml-2 rtl:mr-2">
                         {location[eventLocationType.defaultValueVariable] || eventLocationType.label}
                       </span>
                     </div>
@@ -191,7 +190,6 @@ export const EventSetupTab = (
           {...formMethods.register("title")}
         />
         <TextField
-          required
           label={t("description")}
           placeholder={t("quick_video_meeting")}
           defaultValue={eventType.description ?? ""}
@@ -223,7 +221,9 @@ export const EventSetupTab = (
           }}
         />
         <div>
-          <Label>{t("location")}</Label>
+          <Skeleton as={Label} loadingClassName="w-16">
+            {t("location")}
+          </Skeleton>
           <Controller
             name="locations"
             control={formMethods.control}

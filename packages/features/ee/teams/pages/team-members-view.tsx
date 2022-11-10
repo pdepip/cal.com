@@ -6,7 +6,8 @@ import { useState } from "react";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Icon } from "@calcom/ui/Icon";
-import { Alert, Button } from "@calcom/ui/v2/core";
+import { Button } from "@calcom/ui/components";
+import { Alert } from "@calcom/ui/v2/core";
 import Meta from "@calcom/ui/v2/core/Meta";
 import { getLayout } from "@calcom/ui/v2/core/layouts/SettingsLayout";
 
@@ -36,7 +37,7 @@ const MembersView = () => {
 
   return (
     <>
-      <Meta title="team_members" description="members_team_description" />
+      <Meta title="Team Members" description="Users that are in the group" />
       {!isLoading && (
         <>
           <div>

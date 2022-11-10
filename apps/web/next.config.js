@@ -26,7 +26,8 @@ if (!process.env.CALENDSO_ENCRYPTION_KEY) throw new Error("Please set CALENDSO_E
 if (process.env.VERCEL_URL && !process.env.NEXT_PUBLIC_WEBAPP_URL) {
   process.env.NEXT_PUBLIC_WEBAPP_URL = "https://" + process.env.VERCEL_URL;
 }
-if (process.env.NEXT_PUBLIC_WEBAPP_URL) {
+// Check for configuration of NEXTAUTH_URL before overriding
+if (!process.env.NEXTAUTH_URL && process.env.NEXT_PUBLIC_WEBAPP_URL) {
   process.env.NEXTAUTH_URL = process.env.NEXT_PUBLIC_WEBAPP_URL + "/api/auth";
 }
 if (!process.env.NEXT_PUBLIC_WEBSITE_URL) {
@@ -134,12 +135,12 @@ const nextConfig = {
         destination: "/api/user/avatar?teamname=:teamname",
       },
       {
-        source: "/forms/:formId",
-        destination: "/apps/routing_forms/routing-link/:formId",
+        source: "/forms/:formQuery*",
+        destination: "/apps/routing-forms/routing-link/:formQuery*",
       },
       {
         source: "/router",
-        destination: "/apps/routing_forms/router",
+        destination: "/apps/routing-forms/router",
       },
       /* TODO: have these files being served from another deployment or CDN {
         source: "/embed/embed.js",
@@ -155,20 +156,28 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/auth/signup",
+        destination: "/signup",
+        permanent: true,
+      },
+      {
         source: "/settings",
-        destination: "/settings/profile",
+        destination: "/settings/my-account/profile",
+        permanent: true,
+      },
+      {
+        source: "/settings/teams",
+        destination: "/teams",
         permanent: true,
       },
       /* V2 testers get redirected to the new settings */
       {
         source: "/settings/profile",
-        has: [{ type: "cookie", key: "calcom-v2-early-access" }],
         destination: "/settings/my-account/profile",
         permanent: false,
       },
       {
         source: "/settings/security",
-        has: [{ type: "cookie", key: "calcom-v2-early-access" }],
         destination: "/settings/security/password",
         permanent: false,
       },
